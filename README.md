@@ -1,23 +1,19 @@
-Perfect — now that the repo name is **mango4j-instrument**, here is a **tight, polished, production‑ready README** sized appropriately for a GitHub front page.
-
-No fluff, no excess — just what a developer needs.
-
-***
-
 # mango4j-instrument
 
-<https://github.com/bitstep-ie/mango4j-instrument/actions/workflows/ci.yml/badge.svg](https://github.com/bitstep-ie/mango4j-instrument/actions/workflows/ci.yml)>
-<https://github.com/bitstep-ie/mango4j-instrument/actions/workflows/codeql.yml/badge.svg](https://github.com/bitstep-ie/mango4j-instrument/actions/workflows/codeql.yml)>
-<https://github.com/bitstep-ie/mango4j-instrument/actions/workflows/dependabot/dependabot-updates/badge.svg](https://github.com/bitstep-ie/mango4j-instrument/actions/workflows/dependabot/dependabot-updates)>
+[![CI](https://github.com/bitstep-ie/mango4j-instrument/actions/workflows/ci.yml/badge.svg)](https://github.com/bitstep-ie/mango4j-instrument/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/bitstep-ie/mango4j-instrument/actions/workflows/codeql.yml/badge.svg)](https://github.com/bitstep-ie/mango4j-instrument/actions/workflows/codeql.yml)
+[![Dependabot](https://github.com/bitstep-ie/mango4j-instrument/actions/workflows/dependabot/dependabot-updates/badge.svg)](https://github.com/bitstep-ie/mango4j-instrument/actions/workflows/dependabot/dependabot-updates)
 
 <br/>
 
 <div align="center">
+    <a href="https://github.com/bitstep-ie/mango4j-instrument">
     <picture>
-        documentation/assets/mango-with-text-black.png
-        documentation/assets/mango-with-text-white.png
-        documentation/assets/mango-with-text-black.png
+        <source srcset="documentation/docs/assets/mango-with-text-black.png" media="(prefers-color-scheme: light)">
+        <source srcset="documentation/docs/assets/mango-with-text-white.png" media="(prefers-color-scheme: dark)">
+        <img src="documentation/docs/assets/mango-with-text-black.png" alt="mango Logo">
     </picture>
+    </a>
 
   <h3 align="center">mango4j-instrument</h3>
 
@@ -54,12 +50,20 @@ The framework is **backend‑agnostic** and integrates cleanly with Spring AOP, 
 
 # Quick Start
 
-Add the dependency:
+Add either the plain Spring runtime or the Spring Boot integration:
 
 ```xml
 <dependency>
     <groupId>ie.bitstep.mango</groupId>
-    <artifactId>mango4j-instrument</artifactId>
+    <artifactId>mango4j-instrument-spring</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
+
+```xml
+<dependency>
+    <groupId>ie.bitstep.mango</groupId>
+    <artifactId>mango4j-instrument-spring-boot</artifactId>
     <version>1.0.0</version>
 </dependency>
 ```
@@ -67,8 +71,10 @@ Add the dependency:
 Enable instrumentation:
 
 ```java
+import ie.bitstep.mango.instrument.spring.EnableMangoInstrumentation;
+
 @SpringBootApplication
-@Mango4jApplication
+@EnableMangoInstrumentation
 public class DemoApplication {}
 ```
 
@@ -99,6 +105,9 @@ class StockService {
 Listen to lifecycle events:
 
 ```java
+import ie.bitstep.mango.instrument.model.FlowEvent;
+import ie.bitstep.mango.instrument.spring.annotations.FlowSink;
+
 @FlowSink
 @OnFlowScope("demo.")
 public class DemoSink {

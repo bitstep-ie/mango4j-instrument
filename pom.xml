@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>ie.bitstep.mango</groupId>
+    <artifactId>mango4j-instrument-parent</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>mango4j-instrument</name>
+    <description>Annotation-based flow and step instrumentation for Spring applications.</description>
+    <url>https://github.com/bitstep-ie/mango4j-instrument</url>
+
+    <modules>
+        <module>mango4j-instrument-annotations</module>
+        <module>mango4j-instrument-core</module>
+        <module>mango4j-instrument-spring</module>
+        <module>mango4j-instrument-spring-boot</module>
+    </modules>
+
+    <properties>
+        <java.version>17</java.version>
+        <maven.compiler.release>${java.version}</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <opentelemetry.api.version>1.53.0</opentelemetry.api.version>
+        <spring.framework.version>6.2.10</spring.framework.version>
+    </properties>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.14.1</version>
+                    <configuration>
+                        <release>${maven.compiler.release}</release>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>
