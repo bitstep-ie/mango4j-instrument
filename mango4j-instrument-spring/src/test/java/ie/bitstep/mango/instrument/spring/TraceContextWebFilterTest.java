@@ -46,4 +46,90 @@ class TraceContextWebFilterTest {
         assertThat(seen.get()).containsEntry("parentSpanId", "a2fb4a1d1a96d312");
         assertThat(MDC.getCopyOfContextMap()).isNullOrEmpty();
     }
+
+    @Test
+    void extracts_traceparent_and_restores_previous_mdc() {
+        MDC.put("traceId", "previous");
+        TraceContextWebFilter filter = new TraceContextWebFilter(new FlowProcessorSupport());
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/test")
+                        .header("traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
+                        .build());
+        AtomicReference<Map<String, String>> seen = new AtomicReference<>();
+
+        WebFilterChain chain = webExchange -> {
+            seen.set(Map.copyOf(MDC.getCopyOfContextMap()));
+            return Mono.empty();
+        };
+
+        filter.filter(exchange, chain).block();
+
+        assertThat(seen.get())
+                .containsEntry("traceId", "4bf92f3577b34da6a3ce929d0e0e4736")
+                .containsEntry("spanId", "00f067aa0ba902b7");
+        assertThat(MDC.get("traceId")).isEqualTo("previous");
+        assertThat(MDC.get("spanId")).isNull();
+    }
+
+    @Test
+    void ignores_invalid_traceparent_and_restores_previous_context() {
+        MDC.put("traceId", "previous-trace");
+        MDC.put("spanId", "previous-span");
+        MDC.put("parentSpanId", "previous-parent");
+        MDC.put("tracestate", "previous-state");
+        MDC.put("traceparent", "previous-header");
+
+        TraceContextWebFilter filter = new TraceContextWebFilter(null);
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/test")
+                        .header("traceparent", "broken")
+                        .header("tracestate", "next-state")
+                        .build());
+        AtomicReference<Map<String, String>> seen = new AtomicReference<>();
+
+        WebFilterChain chain = webExchange -> {
+            seen.set(Map.copyOf(MDC.getCopyOfContextMap()));
+            return Mono.empty();
+        };
+
+        filter.filter(exchange, chain).block();
+
+        assertThat(seen.get())
+                .containsEntry("traceId", "previous-trace")
+                .containsEntry("spanId", "previous-span")
+                .containsEntry("parentSpanId", "previous-parent")
+                .containsEntry("traceparent", "broken")
+                .containsEntry("tracestate", "next-state");
+        assertThat(MDC.getCopyOfContextMap())
+                .containsEntry("traceId", "previous-trace")
+                .containsEntry("spanId", "previous-span")
+                .containsEntry("parentSpanId", "previous-parent")
+                .containsEntry("tracestate", "previous-state")
+                .containsEntry("traceparent", "previous-header");
+    }
+
+    @Test
+    void extracts_b3_multi_headers_when_single_header_is_absent() {
+        TraceContextWebFilter filter = new TraceContextWebFilter(new FlowProcessorSupport());
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/test")
+                        .header("X-B3-TraceId", "trace-123")
+                        .header("X-B3-SpanId", "span-456")
+                        .header("X-B3-ParentSpanId", "parent-789")
+                        .build());
+        AtomicReference<Map<String, String>> seen = new AtomicReference<>();
+
+        WebFilterChain chain = webExchange -> {
+            seen.set(Map.copyOf(MDC.getCopyOfContextMap()));
+            return Mono.empty();
+        };
+
+        filter.filter(exchange, chain).block();
+
+        assertThat(seen.get())
+                .containsEntry("traceId", "trace-123")
+                .containsEntry("spanId", "span-456")
+                .containsEntry("parentSpanId", "parent-789");
+        assertThat(MDC.getCopyOfContextMap()).isNullOrEmpty();
+    }
 }

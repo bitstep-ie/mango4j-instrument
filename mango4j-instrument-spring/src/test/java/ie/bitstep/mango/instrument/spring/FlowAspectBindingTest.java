@@ -63,6 +63,41 @@ class FlowAspectBindingTest {
         }
     }
 
+    @Test
+    void records_failed_flow_with_error_metadata() {
+        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(TestConfig.class)) {
+            SampleFlows flows = context.getBean(SampleFlows.class);
+            CapturingSink sink = context.getBean(CapturingSink.class);
+
+            try {
+                flows.checkoutFail("carol");
+            } catch (IllegalArgumentException ignored) {
+            }
+
+            awaitSize(sink.events, 2);
+            FlowEvent failed = sink.events.get(1);
+            assertThat(failed.name()).isEqualTo("demo.checkout.fail");
+            assertThat(failed.eventContext()).containsEntry("lifecycle", "FAILED");
+            assertThat(failed.attributes().map()).containsKey("error");
+            assertThat(failed.throwable()).isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Test
+    void falls_back_to_annotation_value_and_method_signature_names() {
+        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(TestConfig.class)) {
+            SampleFlows flows = context.getBean(SampleFlows.class);
+            CapturingSink sink = context.getBean(CapturingSink.class);
+
+            flows.checkoutValueOnly();
+            flows.checkoutImplicitName();
+
+            awaitSize(sink.events, 4);
+            assertThat(sink.events.get(1).name()).isEqualTo("demo.checkout.value");
+            assertThat(sink.events.get(3).name()).contains("checkoutImplicitName");
+        }
+    }
+
     private static void awaitSize(List<FlowEvent> events, int expectedSize) {
         long deadline = System.currentTimeMillis() + 2000;
         while (System.currentTimeMillis() < deadline) {
@@ -102,6 +137,19 @@ class FlowAspectBindingTest {
         @Flow(name = "demo.checkout.result")
         public String checkoutResult(@PushAttribute("user.id") String userId) {
             return "ok:" + userId;
+        }
+
+        @Flow(name = "demo.checkout.fail")
+        public void checkoutFail(@PushAttribute("user.id") String userId) {
+            throw new IllegalArgumentException("bad:" + userId);
+        }
+
+        @Flow("demo.checkout.value")
+        public void checkoutValueOnly() {
+        }
+
+        @Flow
+        public void checkoutImplicitName() {
         }
     }
 
