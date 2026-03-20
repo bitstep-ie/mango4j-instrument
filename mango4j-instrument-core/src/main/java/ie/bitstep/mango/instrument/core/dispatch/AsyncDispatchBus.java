@@ -25,13 +25,13 @@ public final class AsyncDispatchBus implements AutoCloseable {
         this.registry = Objects.requireNonNull(registry, "registry");
     }
 
-    public void dispatch(FlowEvent event) {
+        public void dispatch(FlowEvent event) {
         if (event == null) {
             return;
         }
         List<FlowSinkHandler> handlers = registry.handlers();
         for (FlowSinkHandler handler : handlers) {
-            workers.computeIfAbsent(handler, Worker::new).offer(event);
+            workers.computeIfAbsent(handler, Worker::new).offer(event.snapshot());
         }
     }
 

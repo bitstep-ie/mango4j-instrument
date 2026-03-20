@@ -12,10 +12,13 @@ import ie.bitstep.mango.instrument.spring.scanner.FlowSinkScanner;
 import ie.bitstep.mango.instrument.spring.validation.HibernateEntityDetector;
 import ie.bitstep.mango.instrument.spring.validation.HibernateEntityLogLevel;
 import ie.bitstep.mango.instrument.validation.FlowAttributeValidator;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
+import org.springframework.context.annotation.Role;
 
 @Configuration(proxyBeanMethods = false)
 @EnableAspectJAutoProxy(proxyTargetClass = true, exposeProxy = true)
@@ -31,6 +34,7 @@ public class MangoInstrumentationConfiguration {
         return new FlowContext(support);
     }
 
+    @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
     @Bean
     public FlowHandlerRegistry flowHandlerRegistry() {
         return new FlowHandlerRegistry();
@@ -60,12 +64,12 @@ public class MangoInstrumentationConfiguration {
     }
 
     @Bean
-    public static BeanPostProcessor flowSinkHandlerRegistrar(FlowHandlerRegistry registry) {
+    public static BeanPostProcessor flowSinkHandlerRegistrar(ObjectProvider<FlowHandlerRegistry> registryProvider) {
         return new BeanPostProcessor() {
             @Override
             public Object postProcessAfterInitialization(Object bean, String beanName) {
                 if (bean instanceof FlowSinkHandler sink) {
-                    registry.register(sink);
+                    registryProvider.getObject().register(sink);
                 }
                 return bean;
             }
@@ -73,7 +77,7 @@ public class MangoInstrumentationConfiguration {
     }
 
     @Bean
-    public static FlowSinkScanner flowSinkScanner(FlowHandlerRegistry registry) {
-        return new FlowSinkScanner(registry);
+    public static FlowSinkScanner flowSinkScanner(ObjectProvider<FlowHandlerRegistry> registryProvider) {
+        return new FlowSinkScanner(registryProvider);
     }
 }

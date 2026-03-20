@@ -46,4 +46,11 @@ public class OEvent {
     public String kind() {
         return kind;
     }
+
+    public OEvent snapshot() {
+        OEvent copy = new OEvent(name, timeUnixNano, new OAttributes(attributes.map()), kind);
+        copy.setEndTimeUnixNano(endTimeUnixNano);
+        copy.setElapsedNanos(elapsedNanos);
+        return copy;
+    }
 }

@@ -36,6 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -46,11 +47,17 @@ import org.springframework.util.ReflectionUtils;
 public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAware {
     private static final Logger log = LoggerFactory.getLogger(FlowSinkScanner.class);
 
-    private final FlowHandlerRegistry registry;
+    private final java.util.function.Supplier<FlowHandlerRegistry> registrySupplier;
     private ApplicationContext applicationContext;
 
     public FlowSinkScanner(FlowHandlerRegistry registry) {
-        this.registry = Objects.requireNonNull(registry, "registry");
+        Objects.requireNonNull(registry, "registry");
+        this.registrySupplier = () -> registry;
+    }
+
+    public FlowSinkScanner(ObjectProvider<FlowHandlerRegistry> registryProvider) {
+        Objects.requireNonNull(registryProvider, "registryProvider");
+        this.registrySupplier = registryProvider::getObject;
     }
 
     @Override
@@ -73,7 +80,7 @@ public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAwa
             return bean;
         }
 
-        registry.register(compiledSink::dispatch);
+        registrySupplier.get().register(compiledSink::dispatch);
         log.info(
                 "Registered FlowSink: {} (handlers={}, fallbacks={})",
                 targetType.getSimpleName(),

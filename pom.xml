@@ -26,6 +26,8 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <opentelemetry.api.version>1.53.0</opentelemetry.api.version>
         <spring.framework.version>6.2.10</spring.framework.version>
+        <junit.jupiter.version>5.13.4</junit.jupiter.version>
+        <assertj.version>3.27.3</assertj.version>
     </properties>
 
     <build>
@@ -37,6 +39,10 @@
                     <configuration>
                         <release>${maven.compiler.release}</release>
                     </configuration>
+                </plugin>
+                <plugin>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>3.5.4</version>
                 </plugin>
             </plugins>
         </pluginManagement>

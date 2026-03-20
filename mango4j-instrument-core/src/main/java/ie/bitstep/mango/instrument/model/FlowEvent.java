@@ -144,6 +144,22 @@ public class FlowEvent {
         this.endTimestamp = Instant.now();
     }
 
+    public FlowEvent snapshot() {
+        FlowEvent copy = FlowEvent.builder().name(name).timestamp(timestamp).build();
+        copy.endTimestamp = endTimestamp;
+        copy.attributes().map().putAll(attributes.map());
+        copy.eventContext().putAll(eventContext);
+        for (OEvent event : events) {
+            copy.events.add(event.snapshot());
+        }
+        copy.kind(kind);
+        copy.setStatus(status);
+        copy.setThrowable(throwable);
+        copy.setReturnValue(returnValue);
+        copy.trace(traceId, spanId, parentSpanId);
+        return copy;
+    }
+
     public static final class Builder {
         private String name;
         private Instant timestamp;

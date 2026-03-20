@@ -107,7 +107,7 @@ public final class TraceContextFilter implements Filter {
         try {
             String[] parts = b3.trim().split("-", -1);
             if (parts.length >= 2) {
-                return new String[] {parts[0], parts[1], parts.length >= 4 ? parts[2] : null};
+                return new String[] {parts[0], parts[1], parts.length >= 4 ? parts[3] : null};
             }
         } catch (Exception ignored) {
         }

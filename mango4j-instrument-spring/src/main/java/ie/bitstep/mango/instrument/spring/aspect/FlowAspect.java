@@ -24,7 +24,7 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 
 @Aspect
-@Order(Ordered.HIGHEST_PRECEDENCE)
+@Order(Ordered.HIGHEST_PRECEDENCE + 1)
 public class FlowAspect {
     private static final String ERROR = "error";
     private final FlowProcessor processor;
