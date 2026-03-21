@@ -126,13 +126,10 @@ public class HibernateEntityDetector implements FlowAttributeValidator {
                 return true;
             }
         }
-        try {
-            for (java.lang.annotation.Annotation annotation : type.getAnnotations()) {
-                if (ENTITY_ANNOTATIONS.contains(annotation.annotationType().getName())) {
-                    return true;
-                }
+        for (java.lang.annotation.Annotation annotation : type.getAnnotations()) {
+            if (ENTITY_ANNOTATIONS.contains(annotation.annotationType().getName())) {
+                return true;
             }
-        } catch (Exception ignored) {
         }
         return false;
     }

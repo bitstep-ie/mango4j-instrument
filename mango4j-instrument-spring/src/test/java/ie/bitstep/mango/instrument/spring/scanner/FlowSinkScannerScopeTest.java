@@ -151,6 +151,23 @@ class FlowSinkScannerScopeTest {
         }
     }
 
+    @FlowSink
+    static class BlankScopeSink {
+        static final AtomicInteger started = new AtomicInteger();
+        static final AtomicInteger fallback = new AtomicInteger();
+
+        @OnFlowStarted
+        @OnFlowScope(" ")
+        public void onStarted() {
+            started.incrementAndGet();
+        }
+
+        @OnFlowNotMatched
+        public void onFallback() {
+            fallback.incrementAndGet();
+        }
+    }
+
     private FlowHandlerRegistry registry;
 
     @BeforeEach
@@ -162,6 +179,7 @@ class FlowSinkScannerScopeTest {
         scanner.postProcessAfterInitialization(new DotChopSink(), "dotChopSink");
         scanner.postProcessAfterInitialization(new ContextualSink(), "contextualSink");
         scanner.postProcessAfterInitialization(new NoHandlerSink(), "noHandlerSink");
+        scanner.postProcessAfterInitialization(new BlankScopeSink(), "blankScopeSink");
         ScopedSink.started.set(0);
         ScopedSink.success.set(0);
         ScopedSink.fallback.set(0);
@@ -182,6 +200,8 @@ class FlowSinkScannerScopeTest {
         ContextualSink.pulledTrace.set(null);
         ContextualSink.pulledCount.set(null);
         NoHandlerSink.called.set(0);
+        BlankScopeSink.started.set(0);
+        BlankScopeSink.fallback.set(0);
     }
 
     @Test
@@ -307,7 +327,20 @@ class FlowSinkScannerScopeTest {
 
     @Test
     void beans_without_flow_handlers_are_not_registered() {
-        assertThat(registry.handlers()).hasSize(4);
+        assertThat(registry.handlers()).hasSize(5);
         assertThat(NoHandlerSink.called.get()).isZero();
+    }
+
+    @Test
+    void blank_method_scope_matches_any_started_flow() throws Exception {
+        FlowEvent event = FlowEvent.builder().name(null).build();
+        event.eventContext().put("lifecycle", "STARTED");
+
+        for (var handler : registry.handlers()) {
+            handler.handle(event);
+        }
+
+        assertThat(BlankScopeSink.started.get()).isEqualTo(1);
+        assertThat(BlankScopeSink.fallback.get()).isZero();
     }
 }

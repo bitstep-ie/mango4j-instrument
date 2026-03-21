@@ -1,9 +1,11 @@
 package ie.bitstep.mango.instrument.spring;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import ie.bitstep.mango.instrument.core.FlowProcessorSupport;
 import ie.bitstep.mango.instrument.spring.webflux.TraceContextWebFilter;
+import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
@@ -131,5 +133,100 @@ class TraceContextWebFilterTest {
                 .containsEntry("spanId", "span-456")
                 .containsEntry("parentSpanId", "parent-789");
         assertThat(MDC.getCopyOfContextMap()).isNullOrEmpty();
+    }
+
+    @Test
+    void extracts_b3_single_without_parent_span() {
+        TraceContextWebFilter filter = new TraceContextWebFilter(new FlowProcessorSupport());
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/test")
+                        .header("b3", "4BF92F3577B34DA6A3CE929D0E0E4736-00F067AA0BA902B7")
+                        .build());
+        AtomicReference<Map<String, String>> seen = new AtomicReference<>();
+
+        WebFilterChain chain = webExchange -> {
+            seen.set(Map.copyOf(MDC.getCopyOfContextMap()));
+            return Mono.empty();
+        };
+
+        filter.filter(exchange, chain).block();
+
+        assertThat(seen.get())
+                .containsEntry("traceId", "4BF92F3577B34DA6A3CE929D0E0E4736")
+                .containsEntry("spanId", "00F067AA0BA902B7")
+                .doesNotContainKey("parentSpanId");
+        assertThat(MDC.getCopyOfContextMap()).isNullOrEmpty();
+    }
+
+    @Test
+    void ignores_malformed_traceparent_and_b3_single_headers() {
+        TraceContextWebFilter filter = new TraceContextWebFilter(new FlowProcessorSupport());
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/test")
+                        .header("traceparent", "00-short-span-01")
+                        .build());
+        AtomicReference<Map<String, String>> seen = new AtomicReference<>();
+
+        WebFilterChain chain = webExchange -> {
+            seen.set(Map.copyOf(MDC.getCopyOfContextMap()));
+            return Mono.empty();
+        };
+
+        filter.filter(exchange, chain).block();
+
+        assertThat(seen.get()).containsEntry("traceparent", "00-short-span-01");
+        assertThat(seen.get()).doesNotContainKeys("traceId", "spanId", "parentSpanId");
+        assertThat(MDC.getCopyOfContextMap()).isNullOrEmpty();
+    }
+
+    @Test
+    void ignores_malformed_b3_single_header() {
+        TraceContextWebFilter filter = new TraceContextWebFilter(new FlowProcessorSupport());
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/test")
+                        .header("b3", "traceonly")
+                        .build());
+        AtomicReference<Map<String, String>> seen = new AtomicReference<>();
+
+        WebFilterChain chain = webExchange -> {
+            seen.set(MDC.getCopyOfContextMap());
+            return Mono.empty();
+        };
+
+        filter.filter(exchange, chain).block();
+
+        assertThat(seen.get()).isNull();
+        assertThat(MDC.getCopyOfContextMap()).isNullOrEmpty();
+    }
+
+    @Test
+    void restores_previous_context_when_chain_errors() {
+        MDC.put("traceId", "previous");
+        TraceContextWebFilter filter = new TraceContextWebFilter(new FlowProcessorSupport());
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/test")
+                        .header("X-B3-TraceId", "trace-123")
+                        .header("X-B3-SpanId", "span-456")
+                        .build());
+
+        assertThatThrownBy(() -> filter.filter(exchange, webExchange -> Mono.error(new IllegalStateException("boom")))
+                        .block())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("boom");
+
+        assertThat(MDC.get("traceId")).isEqualTo("previous");
+        assertThat(MDC.get("spanId")).isNull();
+    }
+
+    @Test
+    void parse_helpers_return_null_for_null_inputs() throws Exception {
+        Method parseTraceparent = TraceContextWebFilter.class.getDeclaredMethod("parseTraceparent", String.class);
+        Method parseB3Single = TraceContextWebFilter.class.getDeclaredMethod("parseB3Single", String.class);
+        parseTraceparent.setAccessible(true);
+        parseB3Single.setAccessible(true);
+
+        assertThat(parseTraceparent.invoke(null, new Object[] {null})).isNull();
+        assertThat(parseB3Single.invoke(null, new Object[] {null})).isNull();
+        assertThat(parseTraceparent.invoke(null, "00-12345678901234567890123456789012-short-span-01")).isNull();
     }
 }

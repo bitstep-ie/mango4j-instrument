@@ -67,10 +67,7 @@ public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAwa
 
     @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
-        Class<?> targetType = AopUtils.getTargetClass(bean);
-        if (targetType == null) {
-            targetType = bean.getClass();
-        }
+        Class<?> targetType = Objects.requireNonNullElseGet(AopUtils.getTargetClass(bean), bean::getClass);
         if (!AnnotatedElementUtils.hasAnnotation(targetType, FlowSink.class)) {
             return bean;
         }
@@ -417,17 +414,6 @@ public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAwa
             } else {
                 if (candidate.equals(trimmed) || candidate.startsWith(trimmed + ".")) {
                     return true;
-                }
-                String cursor = candidate;
-                while (true) {
-                    if (cursor.equals(trimmed)) {
-                        return true;
-                    }
-                    int split = cursor.lastIndexOf('.');
-                    if (split < 0) {
-                        break;
-                    }
-                    cursor = cursor.substring(0, split);
                 }
             }
         }

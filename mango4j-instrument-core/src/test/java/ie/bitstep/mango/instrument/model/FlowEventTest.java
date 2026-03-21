@@ -46,8 +46,10 @@ class FlowEventTest {
 
     @Test
     void builder_trace_and_defaults_are_preserved() {
+        Instant timestamp = Instant.now();
         FlowEvent event = FlowEvent.builder()
                 .name("demo.flow")
+                .timestamp(timestamp)
                 .putAttribute("user.id", "alice")
                 .putEventContext("lifecycle", "STARTED")
                 .build();
@@ -56,12 +58,15 @@ class FlowEventTest {
         event.setReturnValue("ok");
         event.clearReturnValue();
         event.kind(null);
+        event.endStepEvent(30L, 40L, Map.of("ignored", true));
 
         OEvent step = new OEvent("demo.step", 10L, null, "INTERNAL");
         step.setEndTimeUnixNano(20L);
         step.setElapsedNanos(10L);
         OEvent snapshot = step.snapshot();
+        OAttributes nullBacked = new OAttributes(null);
 
+        assertThat(event.timestamp()).isEqualTo(timestamp);
         assertThat(event.attributes().map()).containsEntry("user.id", "alice");
         assertThat(event.getEventContext()).containsEntry("lifecycle", "STARTED");
         assertThat(event.traceId()).isEqualTo("trace-1");
@@ -72,5 +77,22 @@ class FlowEventTest {
         assertThat(snapshot.attributes().map()).isEmpty();
         assertThat(snapshot.endTimeUnixNano()).isEqualTo(20L);
         assertThat(snapshot.elapsedNanos()).isEqualTo(10L);
+        assertThat(snapshot.kind()).isEqualTo("INTERNAL");
+        assertThat(nullBacked.map()).isEmpty();
+    }
+
+    @Test
+    void oattributes_copies_input_and_allows_put() {
+        Map<String, Object> source = new java.util.LinkedHashMap<>();
+        source.put("user.id", "alice");
+        OAttributes attributes = new OAttributes(source);
+        source.put("later", "ignored");
+
+        attributes.put("tenant.id", "bitstep");
+
+        assertThat(attributes.map())
+                .containsEntry("user.id", "alice")
+                .containsEntry("tenant.id", "bitstep")
+                .doesNotContainKey("later");
     }
 }

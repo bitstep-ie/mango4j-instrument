@@ -9,6 +9,7 @@ import ie.bitstep.mango.instrument.annotations.PushContextValue;
 import ie.bitstep.mango.instrument.core.sinks.FlowSinkHandler;
 import ie.bitstep.mango.instrument.model.FlowEvent;
 import io.opentelemetry.api.trace.SpanKind;
+import io.opentelemetry.api.trace.StatusCode;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.AfterEach;
@@ -44,6 +45,8 @@ class FlowAspectBindingTest {
             assertThat(completed.attributes().map()).containsEntry("user.id", "alice");
             assertThat(started.eventContext()).containsEntry("cart.size", 3);
             assertThat(completed.eventContext()).containsEntry("cart.size", 3);
+            assertThat(started.kind()).isEqualTo(SpanKind.SERVER);
+            assertThat(completed.status()).extracting("code", "message").containsExactly(StatusCode.OK, null);
         }
     }
 
@@ -80,6 +83,7 @@ class FlowAspectBindingTest {
             assertThat(failed.eventContext()).containsEntry("lifecycle", "FAILED");
             assertThat(failed.attributes().map()).containsKey("error");
             assertThat(failed.throwable()).isInstanceOf(IllegalArgumentException.class);
+            assertThat(failed.status()).extracting("code", "message").containsExactly(StatusCode.ERROR, "bad:carol");
         }
     }
 

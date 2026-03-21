@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import ie.bitstep.mango.instrument.annotations.FlowException;
 import ie.bitstep.mango.instrument.annotations.OnFlowCompleted;
 import ie.bitstep.mango.instrument.annotations.OnFlowFailure;
+import ie.bitstep.mango.instrument.annotations.OnOutcome;
+import ie.bitstep.mango.instrument.annotations.Outcome;
 import ie.bitstep.mango.instrument.annotations.RequiredAttributes;
 import ie.bitstep.mango.instrument.core.sinks.FlowHandlerRegistry;
 import ie.bitstep.mango.instrument.model.FlowEvent;
@@ -12,10 +14,16 @@ import ie.bitstep.mango.instrument.spring.annotations.FlowSink;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.aop.TargetClassAware;
 
 /**
  * Adapted from obsinity:
  * /home/jallen/git/obsinity/obsinity-collection-spring/src/test/java/com/obsinity/collection/spring/scanner/FlowSinkScannerTest.java
+ *
+ * These tests intentionally make the current lifecycle/outcome semantics visible:
+ * - `@OnFlowFailure` matches emitted failed lifecycle events.
+ * - `@OnFlowCompleted @OnOutcome(FAILURE)` currently overlaps with failed lifecycle dispatch in the runtime matcher.
+ * - that overlap is tested here as current behavior, not as the ideal long-term semantic model.
  */
 class FlowSinkScannerTest {
 
@@ -26,6 +34,7 @@ class FlowSinkScannerTest {
         static final AtomicInteger failureWithThrowableOnly = new AtomicInteger();
         static volatile Throwable lastThrowable;
         static final AtomicInteger completedWithThrowable = new AtomicInteger();
+        static final AtomicInteger completedFailureOutcome = new AtomicInteger();
 
         @OnFlowFailure
         public void onFailureAny(FlowEvent event) {
@@ -52,6 +61,38 @@ class FlowSinkScannerTest {
         public void onCompletedThrowable(Throwable throwable) {
             completedWithThrowable.incrementAndGet();
         }
+
+        @OnFlowCompleted
+        @OnOutcome(Outcome.FAILURE)
+        public void onCompletedFailureOutcome(Throwable throwable) {
+            lastThrowable = throwable;
+            completedFailureOutcome.incrementAndGet();
+        }
+    }
+
+    @FlowSink
+    static class FailureFinishOnlySink {
+        static final AtomicInteger completedFailureOutcome = new AtomicInteger();
+        static volatile Throwable lastThrowable;
+
+        @OnFlowCompleted
+        @OnOutcome(Outcome.FAILURE)
+        public void onCompletedFailureOutcome(Throwable throwable) {
+            lastThrowable = throwable;
+            completedFailureOutcome.incrementAndGet();
+        }
+    }
+
+    @FlowSink
+    static class NullTargetClassAwareSink implements TargetClassAware {
+        @Override
+        public Class<?> getTargetClass() {
+            return null;
+        }
+
+        @OnFlowFailure
+        public void onFailure(FlowEvent event) {
+        }
     }
 
     private FlowHandlerRegistry registry;
@@ -62,28 +103,37 @@ class FlowSinkScannerTest {
         registry = new FlowHandlerRegistry();
         scanner = new FlowSinkScanner(registry);
         scanner.postProcessAfterInitialization(new MySinks(), "mySinks");
+        scanner.postProcessAfterInitialization(new FailureFinishOnlySink(), "failureFinishOnlySink");
         MySinks.failureAny.set(0);
         MySinks.failureWithAttrs.set(0);
         MySinks.failureWithThrowableOnly.set(0);
         MySinks.lastThrowable = null;
         MySinks.completedWithThrowable.set(0);
+        MySinks.completedFailureOutcome.set(0);
+        FailureFinishOnlySink.completedFailureOutcome.set(0);
+        FailureFinishOnlySink.lastThrowable = null;
     }
 
     @Test
-    void invokes_failure_handlers_when_required_attributes_are_present() throws Exception {
+    void failed_lifecycle_dispatch_matches_failure_handlers_and_current_failure_outcome_overlap() throws Exception {
         FlowEvent event = FlowEvent.builder().name("orders.checkout").build();
         event.eventContext().put("lifecycle", "FAILED");
         event.attributes().put("order.id", "123");
         event.attributes().put("error.code", "PAYMENT");
         event.setThrowable(new IllegalArgumentException("bad payment"));
 
-        registry.handlers().get(0).handle(event);
+        for (var handler : registry.handlers()) {
+            handler.handle(event);
+        }
 
         assertThat(MySinks.failureAny.get()).isEqualTo(1);
         assertThat(MySinks.failureWithAttrs.get()).isEqualTo(1);
         assertThat(MySinks.failureWithThrowableOnly.get()).isEqualTo(1);
         assertThat(MySinks.lastThrowable).isInstanceOf(IllegalArgumentException.class);
         assertThat(MySinks.completedWithThrowable.get()).isZero();
+        assertThat(MySinks.completedFailureOutcome.get()).isZero();
+        assertThat(FailureFinishOnlySink.completedFailureOutcome.get()).isEqualTo(1);
+        assertThat(FailureFinishOnlySink.lastThrowable).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -96,5 +146,31 @@ class FlowSinkScannerTest {
 
         assertThat(MySinks.failureAny.get()).isEqualTo(1);
         assertThat(MySinks.failureWithAttrs.get()).isZero();
+    }
+
+    @Test
+    void success_completion_does_not_match_failure_outcome_handlers() throws Exception {
+        FlowEvent event = FlowEvent.builder().name("orders.checkout").build();
+        event.eventContext().put("lifecycle", "COMPLETED");
+
+        for (var handler : registry.handlers()) {
+            handler.handle(event);
+        }
+
+        assertThat(MySinks.completedWithThrowable.get()).isZero();
+        assertThat(MySinks.completedFailureOutcome.get()).isZero();
+        assertThat(FailureFinishOnlySink.completedFailureOutcome.get()).isZero();
+    }
+
+    @Test
+    void target_class_aware_sink_with_null_target_class_is_still_registered() {
+        FlowHandlerRegistry localRegistry = new FlowHandlerRegistry();
+        FlowSinkScanner localScanner = new FlowSinkScanner(localRegistry);
+
+        Object bean = new NullTargetClassAwareSink();
+        Object processed = localScanner.postProcessAfterInitialization(bean, "nullTargetClassAwareSink");
+
+        assertThat(processed).isSameAs(bean);
+        assertThat(localRegistry.handlers()).hasSize(1);
     }
 }

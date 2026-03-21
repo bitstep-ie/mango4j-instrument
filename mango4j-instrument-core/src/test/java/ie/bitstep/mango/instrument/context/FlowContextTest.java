@@ -52,11 +52,34 @@ class FlowContextTest {
         FlowContext context = new FlowContext(support);
 
         assertThat(context.put(" ", "alice")).isEqualTo("alice");
+        assertThat(context.putAttr("user.id", "alice")).isEqualTo("alice");
         context.putAll(Map.of("", "ignored"));
+        context.putAllAttrs(Map.of("tenant.id", "bitstep"));
         context.putContext(null, 3);
+        assertThat(context.putContext("cart.size", 3)).isEqualTo(3);
         context.putAllContext(Map.of(" ", "ignored"));
+        context.putAllContext(Map.of("currency", "EUR"));
 
         assertThat(support.currentContext()).isNull();
         assertThat(support.hasActiveFlow()).isFalse();
+    }
+
+    @Test
+    void ignores_null_and_empty_maps_and_blank_entries_with_active_flow() {
+        FlowProcessorSupport support = new FlowProcessorSupport();
+        FlowContext context = new FlowContext(support);
+        FlowEvent event = FlowEvent.builder().name("demo.flow").build();
+        support.push(event);
+
+        context.putAllAttrs(null);
+        context.putAllAttrs(Map.of());
+        context.putAllAttrs(Map.of(" ", "ignored"));
+        context.putAllContext(null);
+        context.putAllContext(Map.of());
+        context.putAllContext(Map.of("", "ignored"));
+
+        assertThat(event.attributes().map()).isEmpty();
+        assertThat(event.eventContext()).isEmpty();
+        assertThat(support.currentContext()).isSameAs(event);
     }
 }

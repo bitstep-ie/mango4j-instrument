@@ -120,6 +120,14 @@ public class DemoSink {
 }
 ```
 
+Lifecycle and outcome semantics:
+
+* `@OnFlowLifecycle(...)` and `@OnFlowFailure` are event-lifecycle filters. They match the lifecycle of the emitted `FlowEvent`.
+* `@OnOutcome(...)` is intended as an outcome classification filter.
+* These are not the same concept. A nested step can emit a failed lifecycle event, be caught by its caller, and still allow the root flow to complete successfully.
+* In the current runtime implementation, `@OnOutcome(FAILURE)` overlaps heavily with failed lifecycle matching. Treat that as a current implementation detail, not as the intended conceptual model.
+* Prefer `@OnFlowFailure` or `@OnFlowLifecycle(FAILED)` for dedicated failure-event handlers, and avoid combining them with `@OnOutcome(FAILURE)` unless you explicitly want that redundancy.
+
 ***
 
 # Learn More

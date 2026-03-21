@@ -3,11 +3,13 @@ package ie.bitstep.mango.instrument.spring;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import ie.bitstep.mango.instrument.annotations.Flow;
+import ie.bitstep.mango.instrument.annotations.Kind;
 import ie.bitstep.mango.instrument.annotations.OrphanAlert;
 import ie.bitstep.mango.instrument.annotations.PushAttribute;
 import ie.bitstep.mango.instrument.annotations.Step;
 import ie.bitstep.mango.instrument.core.sinks.FlowSinkHandler;
 import ie.bitstep.mango.instrument.model.FlowEvent;
+import io.opentelemetry.api.trace.SpanKind;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.Test;
@@ -30,6 +32,27 @@ class FlowAspectStepBehaviorTest {
             assertThat(completed.events()).hasSize(1);
             assertThat(completed.events().get(0).name()).isEqualTo("demo.stock.verify");
             assertThat(completed.events().get(0).attributes().map()).containsEntry("sku", "SKU-1");
+            assertThat(completed.events().get(0).kind()).isEqualTo(SpanKind.CLIENT.name());
+        }
+    }
+
+    @Test
+    void failed_nested_step_can_be_recovered_while_root_flow_still_completes() {
+        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(TestConfig.class)) {
+            SampleFlows flows = context.getBean(SampleFlows.class);
+            CapturingSink sink = context.getBean(CapturingSink.class);
+
+            flows.checkoutWithRecoveredStepFailure("SKU-9");
+
+            awaitSize(sink.events, 2);
+            FlowEvent completed = sink.events.get(1);
+            assertThat(completed.name()).isEqualTo("demo.checkout.recovered");
+            assertThat(completed.eventContext()).containsEntry("lifecycle", "COMPLETED");
+            assertThat(completed.events()).hasSize(1);
+            assertThat(completed.events().get(0).name()).isEqualTo("demo.stock.reserve");
+            assertThat(completed.events().get(0).attributes().map())
+                    .containsEntry("sku", "SKU-9")
+                    .containsEntry("error", "IllegalStateException");
         }
     }
 
@@ -115,6 +138,14 @@ class FlowAspectStepBehaviorTest {
             stockService.verifyStock("SKU-1");
         }
 
+        @Flow(name = "demo.checkout.recovered")
+        public void checkoutWithRecoveredStepFailure(@PushAttribute("sku") String sku) {
+            try {
+                stockService.reserveStock(sku);
+            } catch (IllegalStateException ignored) {
+            }
+        }
+
         @Step("demo.orphan.step")
         @OrphanAlert(OrphanAlert.Level.NONE)
         public void orphanFail(@PushAttribute("sku") String sku) {
@@ -129,7 +160,13 @@ class FlowAspectStepBehaviorTest {
 
     static class StockService {
         @Step("demo.stock.verify")
+        @Kind(SpanKind.CLIENT)
         public void verifyStock(@PushAttribute("sku") String sku) {
+        }
+
+        @Step("demo.stock.reserve")
+        public void reserveStock(@PushAttribute("sku") String sku) {
+            throw new IllegalStateException("reserve failed");
         }
     }
 

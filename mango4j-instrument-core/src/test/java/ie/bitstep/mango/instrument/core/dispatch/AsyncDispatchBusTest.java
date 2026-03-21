@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import ie.bitstep.mango.instrument.core.sinks.FlowHandlerRegistry;
 import ie.bitstep.mango.instrument.model.FlowEvent;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.UndeclaredThrowableException;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.Test;
@@ -54,6 +57,32 @@ class AsyncDispatchBusTest {
         assertThat(seen.get(0).name()).isEqualTo("demo.flow");
 
         bus.close();
+    }
+
+    @Test
+    void ignores_null_dispatch_and_unwraps_nested_reflection_exceptions() throws Exception {
+        FlowHandlerRegistry registry = new FlowHandlerRegistry();
+        AsyncDispatchBus bus = new AsyncDispatchBus(registry);
+        bus.dispatch(null);
+        bus.close();
+
+        Class<?> workerClass = Class.forName("ie.bitstep.mango.instrument.core.dispatch.AsyncDispatchBus$Worker");
+        Method unwrap = workerClass.getDeclaredMethod("unwrap", Throwable.class);
+        unwrap.setAccessible(true);
+
+        IllegalArgumentException root = new IllegalArgumentException("root");
+        InvocationTargetException invocation = new InvocationTargetException(root);
+        UndeclaredThrowableException undeclared = new UndeclaredThrowableException(invocation);
+        UndeclaredThrowableException selfReferential = new UndeclaredThrowableException(null) {
+            @Override
+            public synchronized Throwable getUndeclaredThrowable() {
+                return this;
+            }
+        };
+
+        assertThat(unwrap.invoke(null, undeclared)).isSameAs(root);
+        assertThat(unwrap.invoke(null, new InvocationTargetException(null))).isInstanceOf(InvocationTargetException.class);
+        assertThat(unwrap.invoke(null, selfReferential)).isSameAs(selfReferential);
     }
 
     private static void awaitSize(List<FlowEvent> events, int expectedSize) {
