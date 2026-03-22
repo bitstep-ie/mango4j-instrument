@@ -30,16 +30,19 @@ class FlowEventTest {
         FlowEvent event = FlowEvent.builder().name("demo.flow").build();
         event.attributes().put("user.id", "alice");
         event.eventContext().put("lifecycle", "STARTED");
+        event.setReturnValue("ok");
         event.beginStepEvent("demo.step", 10L, 100L, new OAttributes(Map.of("sku", "123")), "CLIENT");
         event.endStepEvent(20L, 175L, null);
 
         FlowEvent snapshot = event.snapshot();
         event.attributes().put("later", "value");
         event.eventContext().put("lifecycle", "COMPLETED");
+        event.setReturnValue("later");
 
         assertThat(snapshot).isNotSameAs(event);
         assertThat(snapshot.attributes().map()).containsEntry("user.id", "alice").doesNotContainKey("later");
         assertThat(snapshot.eventContext()).containsEntry("lifecycle", "STARTED");
+        assertThat(snapshot.returnValue()).isEqualTo("ok");
         assertThat(snapshot.events()).hasSize(1);
         assertThat(snapshot.events().get(0)).isNotSameAs(event.events().get(0));
     }
@@ -79,6 +82,19 @@ class FlowEventTest {
         assertThat(snapshot.elapsedNanos()).isEqualTo(10L);
         assertThat(snapshot.kind()).isEqualTo("INTERNAL");
         assertThat(nullBacked.map()).isEmpty();
+    }
+
+    @Test
+    void return_value_round_trips_until_it_is_cleared() {
+        FlowEvent event = FlowEvent.builder().name("demo.flow").build();
+
+        event.setReturnValue(Map.of("status", "ok"));
+
+        assertThat(event.returnValue()).isEqualTo(Map.of("status", "ok"));
+
+        event.clearReturnValue();
+
+        assertThat(event.returnValue()).isNull();
     }
 
     @Test

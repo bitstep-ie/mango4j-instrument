@@ -14,6 +14,41 @@
     <packaging>jar</packaging>
     <name>mango4j-instrument-core</name>
 
+    <build>
+        <plugins>
+            <!-- PITEST: mvn -pl mango4j-instrument-core test-compile org.pitest:pitest-maven:mutationCoverage -->
+            <plugin>
+                <groupId>org.pitest</groupId>
+                <artifactId>pitest-maven</artifactId>
+                <configuration>
+                    <skip>${pitest.skip}</skip>
+                    <mutationThreshold>100</mutationThreshold>
+                    <targetClasses>
+                        <param>ie.bitstep.mango.instrument.core.processor*</param>
+                        <param>ie.bitstep.mango.instrument.context*</param>
+                        <param>ie.bitstep.mango.instrument.model*</param>
+                        <param>ie.bitstep.mango.instrument.validation*</param>
+                    </targetClasses>
+                    <targetTests>
+                        <param>ie.bitstep.mango.instrument.core*</param>
+                        <param>ie.bitstep.mango.instrument.context*</param>
+                        <param>ie.bitstep.mango.instrument.model*</param>
+                        <param>ie.bitstep.mango.instrument.validation*</param>
+                    </targetTests>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>pitest</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>mutationCoverage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
     <dependencies>
         <dependency>
             <groupId>ie.bitstep.mango</groupId>

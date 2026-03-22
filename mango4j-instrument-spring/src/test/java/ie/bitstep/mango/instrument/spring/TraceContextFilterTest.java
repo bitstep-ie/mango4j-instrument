@@ -25,6 +25,15 @@ import org.springframework.mock.web.MockHttpServletResponse;
  */
 class TraceContextFilterTest {
 
+    static class TrackingSupport extends FlowProcessorSupport {
+        int cleanupCalls;
+
+        @Override
+        public void cleanupThreadLocals() {
+            cleanupCalls++;
+        }
+    }
+
     @AfterEach
     void clearMdc() {
         MDC.clear();
@@ -187,7 +196,8 @@ class TraceContextFilterTest {
     @Test
     void restores_previous_context_even_when_chain_throws() {
         MDC.put("traceId", "previous");
-        TraceContextFilter filter = new TraceContextFilter(new FlowProcessorSupport());
+        TrackingSupport support = new TrackingSupport();
+        TraceContextFilter filter = new TraceContextFilter(support);
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader("X-B3-TraceId", "trace-123");
         request.addHeader("X-B3-SpanId", "span-456");
@@ -200,6 +210,7 @@ class TraceContextFilterTest {
 
         assertThat(MDC.get("traceId")).isEqualTo("previous");
         assertThat(MDC.get("spanId")).isNull();
+        assertThat(support.cleanupCalls).isEqualTo(1);
     }
 
     @Test

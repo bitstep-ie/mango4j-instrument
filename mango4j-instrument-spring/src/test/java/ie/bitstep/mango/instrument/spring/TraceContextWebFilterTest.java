@@ -22,6 +22,15 @@ import reactor.core.publisher.Mono;
  */
 class TraceContextWebFilterTest {
 
+    static class TrackingSupport extends FlowProcessorSupport {
+        int cleanupCalls;
+
+        @Override
+        public void cleanupThreadLocals() {
+            cleanupCalls++;
+        }
+    }
+
     @AfterEach
     void clearMdc() {
         MDC.clear();
@@ -202,7 +211,8 @@ class TraceContextWebFilterTest {
     @Test
     void restores_previous_context_when_chain_errors() {
         MDC.put("traceId", "previous");
-        TraceContextWebFilter filter = new TraceContextWebFilter(new FlowProcessorSupport());
+        TrackingSupport support = new TrackingSupport();
+        TraceContextWebFilter filter = new TraceContextWebFilter(support);
         MockServerWebExchange exchange = MockServerWebExchange.from(
                 MockServerHttpRequest.get("/test")
                         .header("X-B3-TraceId", "trace-123")
@@ -216,6 +226,7 @@ class TraceContextWebFilterTest {
 
         assertThat(MDC.get("traceId")).isEqualTo("previous");
         assertThat(MDC.get("spanId")).isNull();
+        assertThat(support.cleanupCalls).isEqualTo(1);
     }
 
     @Test

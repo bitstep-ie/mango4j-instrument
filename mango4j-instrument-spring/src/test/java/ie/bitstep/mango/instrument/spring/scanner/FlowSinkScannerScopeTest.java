@@ -264,6 +264,8 @@ class FlowSinkScannerScopeTest {
         }
 
         assertThat(CheckoutSink.failure.get()).isEqualTo(1);
+        assertThat(CheckoutSink.success.get()).isZero();
+        assertThat(ScopedSink.success.get()).isZero();
         assertThat(CheckoutSink.rootFailure).isSameAs(root);
         assertThat(ScopedSink.fallback.get()).isEqualTo(1);
     }
@@ -308,6 +310,21 @@ class FlowSinkScannerScopeTest {
 
         assertThat(ContextualSink.lifecycleMatch.get()).isZero();
         assertThat(ContextualSink.fallback.get()).isEqualTo(1);
+    }
+
+    @Test
+    void required_context_handler_does_not_match_when_context_is_missing_even_if_scope_and_lifecycle_match() throws Exception {
+        FlowEvent event = FlowEvent.builder().name("special.payment").build();
+        event.eventContext().put("lifecycle", "STARTED");
+        event.attributes().put("count", 7);
+
+        for (var handler : registry.handlers()) {
+            handler.handle(event);
+        }
+
+        assertThat(ContextualSink.lifecycleMatch.get()).isZero();
+        assertThat(ContextualSink.fallback.get()).isEqualTo(1);
+        assertThat(ContextualSink.pulledTrace.get()).isNull();
     }
 
     @Test

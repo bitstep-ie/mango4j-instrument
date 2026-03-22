@@ -95,6 +95,15 @@ class FlowSinkScannerTest {
         }
     }
 
+    static class PlainBean {
+    }
+
+    @FlowSink
+    static class NoLifecycleSink {
+        public void helperOnly() {
+        }
+    }
+
     private FlowHandlerRegistry registry;
     private FlowSinkScanner scanner;
 
@@ -172,5 +181,20 @@ class FlowSinkScannerTest {
 
         assertThat(processed).isSameAs(bean);
         assertThat(localRegistry.handlers()).hasSize(1);
+    }
+
+    @Test
+    void returns_original_bean_for_non_sink_and_no_lifecycle_sink() {
+        FlowHandlerRegistry localRegistry = new FlowHandlerRegistry();
+        FlowSinkScanner localScanner = new FlowSinkScanner(localRegistry);
+        PlainBean plainBean = new PlainBean();
+        NoLifecycleSink noLifecycleSink = new NoLifecycleSink();
+
+        Object plainProcessed = localScanner.postProcessAfterInitialization(plainBean, "plainBean");
+        Object noLifecycleProcessed = localScanner.postProcessAfterInitialization(noLifecycleSink, "noLifecycleSink");
+
+        assertThat(plainProcessed).isSameAs(plainBean);
+        assertThat(noLifecycleProcessed).isSameAs(noLifecycleSink);
+        assertThat(localRegistry.handlers()).isEmpty();
     }
 }

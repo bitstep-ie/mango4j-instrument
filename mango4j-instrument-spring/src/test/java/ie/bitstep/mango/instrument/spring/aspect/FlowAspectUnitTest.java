@@ -32,7 +32,7 @@ class FlowAspectUnitTest {
      */
     @Test
     void nested_flow_keeps_parent_context_and_records_meta() throws Throwable {
-        FlowProcessorSupport support = new FlowProcessorSupport();
+        TrackingSupport support = new TrackingSupport();
         RecordingProcessor processor = new RecordingProcessor(support);
         FlowAspect aspect = new FlowAspect(processor, support);
         FlowEvent parent = FlowEvent.builder().name("parent").build();
@@ -50,11 +50,12 @@ class FlowAspectUnitTest {
         assertThat(processor.completed.get(0).attrs).containsEntry("user.id", "alice");
         assertThat(processor.completed.get(0).context).containsEntry("cart.size", 2);
         assertThat(support.currentContext()).isSameAs(parent);
+        assertThat(support.cleanupCalls).isZero();
     }
 
     @Test
     void orphan_step_failure_preserves_existing_error_attribute() throws Throwable {
-        FlowProcessorSupport support = new FlowProcessorSupport();
+        TrackingSupport support = new TrackingSupport();
         RecordingProcessor processor = new RecordingProcessor(support);
         FlowAspect aspect = new FlowAspect(processor, support);
         Method method = Samples.class.getDeclaredMethod("orphanWithErrorAttr", String.class);
@@ -71,11 +72,14 @@ class FlowAspectUnitTest {
         assertThat(failed.meta.statusCode()).isEqualTo("ERROR");
         assertThat(failed.meta.statusMessage()).isEqualTo("boom");
         assertThat(support.currentContext()).isNull();
+        assertThat(support.cleanupCalls).isEqualTo(1);
+        assertThat(support.orphanStepName).isEqualTo("Samples.orphanWithErrorAttr(..)");
+        assertThat(support.orphanAlertLevel).isEqualTo(OrphanAlert.Level.NONE);
     }
 
     @Test
     void in_flow_step_failure_records_internal_kind_and_error_update() throws Throwable {
-        FlowProcessorSupport support = new FlowProcessorSupport();
+        TrackingSupport support = new TrackingSupport();
         RecordingProcessor processor = new RecordingProcessor(support);
         FlowAspect aspect = new FlowAspect(processor, support);
         FlowEvent active = FlowEvent.builder().name("root").build();
@@ -101,7 +105,7 @@ class FlowAspectUnitTest {
 
     @Test
     void orphan_step_uses_explicit_step_name_when_present() throws Throwable {
-        FlowProcessorSupport support = new FlowProcessorSupport();
+        TrackingSupport support = new TrackingSupport();
         RecordingProcessor processor = new RecordingProcessor(support);
         FlowAspect aspect = new FlowAspect(processor, support);
         Method method = Samples.class.getDeclaredMethod("namedStep");
@@ -115,6 +119,48 @@ class FlowAspectUnitTest {
             assertThat(call.meta.statusCode()).isEqualTo("OK");
         });
         assertThat(support.currentContext()).isNull();
+        assertThat(support.cleanupCalls).isEqualTo(1);
+    }
+
+    @Test
+    void root_flow_failure_clears_return_value_and_cleans_up_thread_locals() throws Throwable {
+        TrackingSupport support = new TrackingSupport();
+        RecordingProcessor processor = new RecordingProcessor(support, event -> event.setReturnValue("stale"));
+        FlowAspect aspect = new FlowAspect(processor, support);
+        Method method = Samples.class.getDeclaredMethod("failingFlow");
+
+        assertThatThrownBy(() -> aspect.aroundFlow(joinPoint(method, new Object[0], () -> {
+                    throw new IllegalStateException("boom");
+                })))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("boom");
+
+        assertThat(processor.failed).hasSize(1);
+        assertThat(processor.failedSnapshots).singleElement().satisfies(event -> assertThat(event.returnValue()).isNull());
+        assertThat(processor.failed).singleElement().satisfies(call -> assertThat(call.attrs())
+                .containsEntry("error", "java.lang.IllegalStateException: boom"));
+        assertThat(support.cleanupCalls).isEqualTo(1);
+        assertThat(support.currentContext()).isNull();
+    }
+
+    @Test
+    void in_flow_step_success_returns_result_and_closes_step_event() throws Throwable {
+        TrackingSupport support = new TrackingSupport();
+        RecordingProcessor processor = new RecordingProcessor(support);
+        FlowAspect aspect = new FlowAspect(processor, support);
+        FlowEvent active = FlowEvent.builder().name("root").build();
+        support.push(active);
+        Method method = Samples.class.getDeclaredMethod("returningStep");
+
+        Object result = aspect.aroundStep(joinPoint(method, new Object[0], () -> "done"));
+
+        assertThat(result).isEqualTo("done");
+        assertThat(active.events()).singleElement().satisfies(event -> {
+            assertThat(event.name()).isEqualTo("Samples.returningStep(..)");
+            assertThat(event.endTimeUnixNano()).isPositive();
+            assertThat(event.elapsedNanos()).isGreaterThanOrEqualTo(0L);
+        });
+        assertThat(support.cleanupCalls).isZero();
     }
 
     private static ProceedingJoinPoint joinPoint(Method method, Object[] args, ProceedCallback callback) {
@@ -178,13 +224,21 @@ class FlowAspectUnitTest {
 
     static class RecordingProcessor implements FlowProcessor {
         private final FlowProcessorSupport support;
+        private final java.util.function.Consumer<FlowEvent> startedInitializer;
         private final List<FlowEvent> stack = new ArrayList<>();
         final List<RecordedCall> started = new ArrayList<>();
         final List<RecordedCall> completed = new ArrayList<>();
         final List<RecordedCall> failed = new ArrayList<>();
+        final List<FlowEvent> failedSnapshots = new ArrayList<>();
 
         RecordingProcessor(FlowProcessorSupport support) {
+            this(support, event -> {
+            });
+        }
+
+        RecordingProcessor(FlowProcessorSupport support, java.util.function.Consumer<FlowEvent> startedInitializer) {
             this.support = support;
+            this.startedInitializer = startedInitializer;
         }
 
         @Override
@@ -193,6 +247,7 @@ class FlowAspectUnitTest {
             FlowEvent event = FlowEvent.builder().name(name).build();
             event.attributes().map().putAll(extraAttrs);
             event.eventContext().putAll(extraContext);
+            startedInitializer.accept(event);
             stack.add(event);
             support.push(event);
         }
@@ -215,11 +270,30 @@ class FlowAspectUnitTest {
             failed.add(new RecordedCall(name, extraAttrs, extraContext, meta, error));
             FlowEvent current = support.currentContext();
             if (current != null) {
+                failedSnapshots.add(current.snapshot());
                 support.pop(current);
             }
             if (!stack.isEmpty()) {
                 stack.remove(stack.size() - 1);
             }
+        }
+    }
+
+    static class TrackingSupport extends FlowProcessorSupport {
+        int cleanupCalls;
+        String orphanStepName;
+        OrphanAlert.Level orphanAlertLevel;
+
+        @Override
+        public void cleanupThreadLocals() {
+            cleanupCalls++;
+            super.cleanupThreadLocals();
+        }
+
+        @Override
+        public void logOrphanStep(String stepName, OrphanAlert.Level level) {
+            orphanStepName = stepName;
+            orphanAlertLevel = level;
         }
     }
 
@@ -243,6 +317,16 @@ class FlowAspectUnitTest {
 
         @Step(name = "explicit-step")
         String namedStep() {
+            return "ignored";
+        }
+
+        @Flow
+        String failingFlow() {
+            return "ignored";
+        }
+
+        @Step
+        String returningStep() {
             return "ignored";
         }
     }

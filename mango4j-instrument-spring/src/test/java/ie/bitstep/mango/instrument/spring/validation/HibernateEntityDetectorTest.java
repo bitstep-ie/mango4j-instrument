@@ -1,8 +1,13 @@
 package ie.bitstep.mango.instrument.spring.validation;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -18,6 +23,7 @@ import javax.tools.JavaCompiler;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 class HibernateEntityDetectorTest {
 
@@ -101,12 +107,26 @@ class HibernateEntityDetectorTest {
 
     @Test
     void warn_and_info_modes_do_not_throw_when_entity_is_present() {
-        assertThatCode(() ->
-                HibernateEntityDetector.checkNotHibernateEntity("payload", new EntityType(), HibernateEntityLogLevel.WARN))
-                .doesNotThrowAnyException();
-        assertThatCode(() ->
-                HibernateEntityDetector.checkNotHibernateEntity("payload", new EntityType(), HibernateEntityLogLevel.INFO))
-                .doesNotThrowAnyException();
+        Logger logger = (Logger) LoggerFactory.getLogger(HibernateEntityDetector.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            assertThatCode(() -> HibernateEntityDetector.checkNotHibernateEntity(
+                            "payload", new EntityType(), HibernateEntityLogLevel.WARN))
+                    .doesNotThrowAnyException();
+            assertThatCode(() -> HibernateEntityDetector.checkNotHibernateEntity(
+                            "payload", new EntityType(), HibernateEntityLogLevel.INFO))
+                    .doesNotThrowAnyException();
+
+            assertThat(appender.list)
+                    .filteredOn(event -> event.getFormattedMessage().contains("flow attribute 'payload'"))
+                    .hasSize(2)
+                    .extracting(ILoggingEvent::getLevel)
+                    .containsExactly(Level.WARN, Level.INFO);
+        } finally {
+            logger.detachAppender(appender);
+        }
     }
 
     @Test
@@ -132,12 +152,43 @@ class HibernateEntityDetectorTest {
     }
 
     @Test
+    void detects_entities_inside_object_arrays() {
+        Object[] payload = {"ok", new EntityType()};
+
+        assertThatThrownBy(() ->
+                HibernateEntityDetector.checkNotHibernateEntity("payload", payload, HibernateEntityLogLevel.ERROR))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("payload[1]");
+    }
+
+    @Test
+    void detects_entities_inside_optional_values() {
+        Wrapper wrapper = new Wrapper(Optional.of(new EntityType()));
+
+        assertThatThrownBy(() ->
+                HibernateEntityDetector.checkNotHibernateEntity("payload", wrapper, HibernateEntityLogLevel.ERROR))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("payload.payload.value");
+    }
+
+    @Test
+    void detects_entities_in_later_iterable_entries_and_reports_the_correct_index() {
+        Wrapper wrapper = new Wrapper(List.of("ok", new EntityType()));
+
+        assertThatThrownBy(() ->
+                HibernateEntityDetector.checkNotHibernateEntity("payload", wrapper, HibernateEntityLogLevel.ERROR))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("payload.payload[1]");
+    }
+
+    @Test
     void uses_error_level_when_detector_is_constructed_with_null() {
         HibernateEntityDetector detector = new HibernateEntityDetector(null);
 
         assertThatThrownBy(() -> detector.validate("payload", new EntityType()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("payload");
+        assertThat(readLogLevel(detector)).isEqualTo(HibernateEntityLogLevel.ERROR);
     }
 
     @Test
@@ -257,5 +308,15 @@ class HibernateEntityDetectorTest {
         assertThatCode(() -> getAllFields.invoke(null, new Object[] {null})).doesNotThrowAnyException();
         assertThatCode(() -> getAllFields.invoke(null, Object.class)).doesNotThrowAnyException();
         assertThatCode(() -> getAllFields.invoke(null, ChildHolder.class)).doesNotThrowAnyException();
+    }
+
+    private static Object readLogLevel(HibernateEntityDetector detector) {
+        try {
+            var field = HibernateEntityDetector.class.getDeclaredField("logLevel");
+            field.setAccessible(true);
+            return field.get(detector);
+        } catch (ReflectiveOperationException exception) {
+            throw new AssertionError(exception);
+        }
     }
 }

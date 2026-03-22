@@ -1,6 +1,7 @@
 package ie.bitstep.mango.instrument.spring.processor;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import ie.bitstep.mango.instrument.annotations.PushAttribute;
 import ie.bitstep.mango.instrument.annotations.PushContextValue;
@@ -36,6 +37,15 @@ class AttributeParamExtractorTest {
         assertThat(noArgs.context()).isEmpty();
         assertThat(blankKeys.attributes()).isEmpty();
         assertThat(blankKeys.context()).isEmpty();
+    }
+
+    @Test
+    void rejects_hibernate_entity_values_before_adding_attributes() throws NoSuchMethodException {
+        Method method = Sample.class.getDeclaredMethod("entityAttr", EntityPayload.class);
+
+        assertThatThrownBy(() -> AttributeParamExtractor.extract(joinPoint(method, new Object[] {new EntityPayload()})))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("payload");
     }
 
     private static ProceedingJoinPoint joinPoint(Method method, Object[] args) {
@@ -100,5 +110,12 @@ class AttributeParamExtractorTest {
 
         void blankKeys(@PushAttribute(" ") String userId, @PushContextValue("") String currency) {
         }
+
+        void entityAttr(@PushAttribute("payload") EntityPayload payload) {
+        }
+    }
+
+    @jakarta.persistence.Entity
+    static class EntityPayload {
     }
 }

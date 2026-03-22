@@ -25,7 +25,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 class FlowSinkScannerInternalsTest {
 
@@ -218,6 +222,132 @@ class FlowSinkScannerInternalsTest {
         assertThat(compileHandler.invoke(scanner, mismatchedProxy, startedHandler, List.of(), Set.of())).isNull();
     }
 
+    @Test
+    void compile_handler_applies_class_lifecycle_filter_and_matches_fail_when_requirements_are_missing() throws Exception {
+        FlowSinkScanner scanner = new FlowSinkScanner(new ie.bitstep.mango.instrument.core.sinks.FlowHandlerRegistry());
+        Method compileHandler = FlowSinkScanner.class.getDeclaredMethod(
+                "compileHandler", Object.class, Method.class, List.class, Set.class);
+        compileHandler.setAccessible(true);
+
+        SampleSink sink = new SampleSink();
+        Method startedMethod = SampleSink.class.getDeclaredMethod("startedWithRequiredContext", String.class);
+        Object filtered = compileHandler.invoke(
+                scanner,
+                sink,
+                startedMethod,
+                List.of("orders"),
+                Set.of(OnFlowLifecycle.Lifecycle.FAILED));
+
+        assertThat(filtered).isNotNull();
+        Method matches = filtered.getClass().getDeclaredMethod("matches", FlowEvent.class);
+        matches.setAccessible(true);
+
+        FlowEvent started = FlowEvent.builder().name("orders.checkout").build();
+        started.eventContext().put("lifecycle", "STARTED");
+        started.eventContext().put("trace.id", "trace-1");
+        assertThat(matches.invoke(filtered, started)).isEqualTo(false);
+
+        Object allowed = compileHandler.invoke(
+                scanner,
+                sink,
+                startedMethod,
+                List.of("orders"),
+                Set.of(OnFlowLifecycle.Lifecycle.STARTED));
+        Method allowedMatches = allowed.getClass().getDeclaredMethod("matches", FlowEvent.class);
+        allowedMatches.setAccessible(true);
+        FlowEvent missingContext = FlowEvent.builder().name("orders.checkout").build();
+        missingContext.eventContext().put("lifecycle", "STARTED");
+        assertThat(allowedMatches.invoke(allowed, missingContext)).isEqualTo(false);
+
+        missingContext.eventContext().put("trace.id", "trace-2");
+        assertThat(allowedMatches.invoke(allowed, missingContext)).isEqualTo(true);
+    }
+
+    @Test
+    void compile_handler_returns_null_without_lifecycle_even_when_binding_would_otherwise_work() throws Exception {
+        FlowSinkScanner scanner = new FlowSinkScanner(new ie.bitstep.mango.instrument.core.sinks.FlowHandlerRegistry());
+        Method compileHandler = FlowSinkScanner.class.getDeclaredMethod(
+                "compileHandler", Object.class, Method.class, List.class, Set.class);
+        compileHandler.setAccessible(true);
+
+        SampleSink sink = new SampleSink();
+        Method method = SampleSink.class.getDeclaredMethod("withoutLifecycle", String.class);
+
+        assertThat(compileHandler.invoke(scanner, sink, method, List.of(), Set.of())).isNull();
+    }
+
+    @Test
+    void compile_handler_logs_proxy_mismatch_at_debug_level() throws Exception {
+        Logger logger = (Logger) LoggerFactory.getLogger(FlowSinkScanner.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            FlowSinkScanner scanner = new FlowSinkScanner(new ie.bitstep.mango.instrument.core.sinks.FlowHandlerRegistry());
+            Method compileHandler = FlowSinkScanner.class.getDeclaredMethod(
+                    "compileHandler", Object.class, Method.class, List.class, Set.class);
+            compileHandler.setAccessible(true);
+
+            Object mismatchedProxy = Proxy.newProxyInstance(
+                    Runnable.class.getClassLoader(), new Class<?>[] {Runnable.class}, (proxy, method, args) -> null);
+            Method startedHandler = SampleSink.class.getDeclaredMethod("startedHandler");
+
+            assertThat(compileHandler.invoke(scanner, mismatchedProxy, startedHandler, List.of(), Set.of())).isNull();
+            assertThat(appender.list)
+                    .anySatisfy(event -> assertThat(event.getFormattedMessage()).contains("Skipping FlowSink method"))
+                    .anySatisfy(event -> assertThat(event.getFormattedMessage()).contains("proxy mismatch"));
+        } finally {
+            logger.detachAppender(appender);
+        }
+    }
+
+    @Test
+    void compile_handler_supports_failure_only_methods_and_rejects_completed_events() throws Exception {
+        FlowSinkScanner scanner = new FlowSinkScanner(new ie.bitstep.mango.instrument.core.sinks.FlowHandlerRegistry());
+        Method compileHandler = FlowSinkScanner.class.getDeclaredMethod(
+                "compileHandler", Object.class, Method.class, List.class, Set.class);
+        compileHandler.setAccessible(true);
+
+        SampleSink sink = new SampleSink();
+        Method failureOnlyMethod = SampleSink.class.getDeclaredMethod("failureOnly", Throwable.class);
+        Object compiled = compileHandler.invoke(scanner, sink, failureOnlyMethod, List.of("orders"), Set.of());
+        assertThat(compiled).isNotNull();
+
+        Method matches = compiled.getClass().getDeclaredMethod("matches", FlowEvent.class);
+        Method invoke = compiled.getClass().getDeclaredMethod("invoke", FlowEvent.class);
+        matches.setAccessible(true);
+        invoke.setAccessible(true);
+
+        FlowEvent failed = FlowEvent.builder().name("orders.checkout").build();
+        failed.eventContext().put("lifecycle", "FAILED");
+        RuntimeException failure = new RuntimeException("boom");
+        failed.setThrowable(failure);
+        assertThat(matches.invoke(compiled, failed)).isEqualTo(true);
+        invoke.invoke(compiled, failed);
+        assertThat(sink.failureOnlyThrowable).isSameAs(failure);
+
+        FlowEvent completed = FlowEvent.builder().name("orders.checkout").build();
+        completed.eventContext().put("lifecycle", "COMPLETED");
+        assertThat(matches.invoke(compiled, completed)).isEqualTo(false);
+    }
+
+    @Test
+    void post_process_logs_registration_for_real_sink() {
+        Logger logger = (Logger) LoggerFactory.getLogger(FlowSinkScanner.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            FlowSinkScanner scanner = new FlowSinkScanner(new ie.bitstep.mango.instrument.core.sinks.FlowHandlerRegistry());
+            scanner.postProcessAfterInitialization(new LoggingSink(), "loggingSink");
+
+            assertThat(appender.list)
+                    .anySatisfy(event -> assertThat(event.getFormattedMessage()).contains("Registered FlowSink: LoggingSink"));
+        } finally {
+            logger.detachAppender(appender);
+        }
+    }
+
     @OnFlowScopes({@OnFlowScope(""), @OnFlowScope("orders.")})
     static class ScopedType {
     }
@@ -256,6 +386,7 @@ class FlowSinkScannerInternalsTest {
     }
 
     static class SampleSink {
+        Throwable failureOnlyThrowable;
         Throwable throwable;
         Throwable failureFinishThrowable;
         String contextValue;
@@ -288,8 +419,26 @@ class FlowSinkScannerInternalsTest {
             this.failureFinishThrowable = throwable;
         }
 
+        @ie.bitstep.mango.instrument.annotations.OnFlowFailure
+        void failureOnly(Throwable throwable) {
+            this.failureOnlyThrowable = throwable;
+        }
+
         @OnFlowStarted
         void startedHandler() {
+        }
+
+        @OnFlowStarted
+        @ie.bitstep.mango.instrument.annotations.RequiredEventContext("trace.id")
+        void startedWithRequiredContext(@PullContextValue("trace.id") String traceId) {
+            this.contextValue = traceId;
+        }
+    }
+
+    @ie.bitstep.mango.instrument.spring.annotations.FlowSink
+    static class LoggingSink {
+        @OnFlowStarted
+        void onStart() {
         }
     }
 }

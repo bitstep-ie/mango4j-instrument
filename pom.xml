@@ -28,6 +28,9 @@
         <spring.framework.version>6.2.10</spring.framework.version>
         <junit.jupiter.version>5.13.4</junit.jupiter.version>
         <assertj.version>3.27.3</assertj.version>
+        <pitest.plugin.version>1.22.1</pitest.plugin.version>
+        <pitest.junit5.plugin.version>1.2.3</pitest.junit5.plugin.version>
+        <pitest.skip>true</pitest.skip>
     </properties>
 
     <build>
@@ -43,6 +46,24 @@
                 <plugin>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>3.5.4</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.pitest</groupId>
+                    <artifactId>pitest-maven</artifactId>
+                    <version>${pitest.plugin.version}</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.pitest</groupId>
+                            <artifactId>pitest-junit5-plugin</artifactId>
+                            <version>${pitest.junit5.plugin.version}</version>
+                        </dependency>
+                    </dependencies>
+                    <configuration>
+                        <withHistory>false</withHistory>
+                        <avoidCallsTo>
+                            <param>java.lang.System$Logger</param>
+                        </avoidCallsTo>
+                    </configuration>
                 </plugin>
             </plugins>
         </pluginManagement>
@@ -68,4 +89,13 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>pitest</id>
+            <properties>
+                <pitest.skip>false</pitest.skip>
+            </properties>
+        </profile>
+    </profiles>
 </project>
