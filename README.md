@@ -20,13 +20,13 @@
   <p align="center">
     Annotation‑based flow and step instrumentation for Spring applications.
     <br/><br/>
-    https://bitstep-ie.github.io/mango4j-instrument/latest<strong>📚 View Documentation »</strong></a>
+    <a href="https://bitstep-ie.github.io/mango4j-instrument/latest"><strong>View Documentation</strong></a>
     <br/><br/>
-    https://github.com/bitstep-ie/mango4j-examples🔎 Example Application</a>
+    <a href="https://github.com/bitstep-ie/mango4j-examples">Example Application</a>
     &middot;
-    https://github.com/bitstep-ie/mango4j-instrument/issues/new?template=bug_report.md
+    <a href="https://github.com/bitstep-ie/mango4j-instrument/issues/new?template=bug_report.md">Report Bug</a>
     &middot;
-    https://github.com/bitstep-ie/mango4j-instrument/issues/new?template=feature_request.md
+    <a href="https://github.com/bitstep-ie/mango4j-instrument/issues/new?template=feature_request.md">Request Feature</a>
   </p>
 </div>
 
