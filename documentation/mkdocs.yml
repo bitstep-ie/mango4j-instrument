@@ -1,0 +1,66 @@
+site_name: "mango4j-instrument"
+site_description: Annotation-based flow and step instrumentation for Spring applications
+site_url: https://bitstep-ie.github.io/mango4j-instrument/
+repo_url: https://github.com/bitstep-ie/mango4j-instrument
+repo_name: bitstep-ie/mango4j-instrument
+docs_dir: ./docs
+
+theme:
+  name: material
+  logo: assets/mango-with-text-black.png
+  features:
+    - navigation.top
+    - navigation.tabs
+    - navigation.instant
+    - content.code.annotate
+    - content.tabs.link
+  palette:
+    - scheme: default
+      primary: orange
+      accent: amber
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+      code: github
+    - scheme: slate
+      primary: orange
+      accent: deep orange
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+      code: monokai
+
+extra:
+  version:
+    provider: mike
+
+nav:
+  - Home: index.md
+  - Guide:
+      - Overview: guide/overview.md
+      - Getting Started: guide/getting-started.md
+      - Flows And Steps: guide/flows-and-steps.md
+      - Flow Sinks: guide/flow-sinks.md
+      - Web Tracing: guide/web-tracing.md
+      - Spring Boot: guide/spring-boot.md
+  - Reference:
+      - Modules: reference/modules.md
+      - Annotations: reference/annotations.md
+      - Lifecycle Semantics: reference/lifecycle-semantics.md
+      - Testing And Mutation Coverage: reference/testing.md
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - admonition
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+      guess_lang: false
+      linenums: true
+  - tables
+  - footnotes
+  - def_list
+  - attr_list
+  - md_in_html
+  - pymdownx.blocks.caption
