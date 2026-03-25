@@ -1,3 +1,9 @@
+# INtellJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+
 # Compiled class file
 *.class
 
