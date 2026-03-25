@@ -15,6 +15,9 @@ public class MangoInstrumentationImportSelector implements ImportSelector {
         if (ClassUtils.isPresent("jakarta.servlet.Filter", getClass().getClassLoader())) {
             imports.add(MangoServletTraceConfiguration.class.getName());
         }
+        if (ClassUtils.isPresent("org.springframework.web.servlet.HandlerInterceptor", getClass().getClassLoader())) {
+            imports.add(MangoServletFlowConfiguration.class.getName());
+        }
         if (ClassUtils.isPresent("org.springframework.web.server.WebFilter", getClass().getClassLoader())) {
             imports.add(MangoWebFluxTraceConfiguration.class.getName());
         }

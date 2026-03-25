@@ -63,6 +63,10 @@
                         <avoidCallsTo>
                             <param>java.lang.System$Logger</param>
                         </avoidCallsTo>
+                        <outputFormats>
+                            <outputFormat>HTML</outputFormat>
+                            <outputFormat>XML</outputFormat>
+                        </outputFormats>
                     </configuration>
                 </plugin>
             </plugins>

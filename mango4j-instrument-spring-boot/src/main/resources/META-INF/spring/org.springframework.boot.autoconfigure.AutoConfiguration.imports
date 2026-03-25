@@ -1,3 +1,4 @@
 ie.bitstep.mango.instrument.spring.boot.MangoInstrumentationAutoConfiguration
 ie.bitstep.mango.instrument.spring.boot.MangoServletTraceAutoConfiguration
+ie.bitstep.mango.instrument.spring.boot.MangoServletFlowAutoConfiguration
 ie.bitstep.mango.instrument.spring.boot.MangoWebFluxTraceAutoConfiguration

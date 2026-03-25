@@ -48,6 +48,18 @@ class FlowEventTest {
     }
 
     @Test
+    void builder_preserves_provided_timestamp_and_defaults_null_to_now() {
+        // Use a fixed past instant — clearly distinct from any Instant.now() call inside the constructor,
+        // which kills the negated-conditional mutation on the ternary in FlowEvent.<init>.
+        Instant fixedPast = Instant.parse("2020-01-01T00:00:00Z");
+        FlowEvent withTimestamp = FlowEvent.builder().name("demo.flow").timestamp(fixedPast).build();
+        FlowEvent withoutTimestamp = FlowEvent.builder().name("demo.flow").build();
+
+        assertThat(withTimestamp.timestamp()).isEqualTo(fixedPast);
+        assertThat(withoutTimestamp.timestamp()).isAfter(fixedPast);
+    }
+
+    @Test
     void builder_trace_and_defaults_are_preserved() {
         Instant timestamp = Instant.now();
         FlowEvent event = FlowEvent.builder()
