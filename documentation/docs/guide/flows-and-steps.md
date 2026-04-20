@@ -1,22 +1,33 @@
 # Flows And Steps
 
-## `@Flow`
+Mango4j-instrument uses two main annotations to describe application execution: `@Flow` and `@Step`. The distinction is
+important because it gives your instrumentation model a hierarchy.
 
-`@Flow` marks a root operation. The runtime emits:
+## Flow
 
-- a started event when execution begins
-- a completed event when the method returns normally
-- a failed event when the method exits by throwing
+`@Flow` marks a root operation. A root operation is the unit of work that you would usually want to talk about when
+explaining what the application just did. Examples might be `checkout.submit`, `payment.capture`, `customer.register`,
+or `report.generate`.
 
-Flow names should be stable and descriptive. Dot-separated names work well because scope matching understands prefixes like `checkout.`.
+When a flow method runs, the runtime emits:
 
-## `@Step`
+* A started event when execution begins.
+* A completed event when the method returns normally.
+* A failed event when the method exits by throwing.
 
-`@Step` is for nested work within an active flow. A step behaves like a smaller lifecycle event inside the current root flow.
+Flow names should be stable and descriptive. Dot-separated names are recommended because they work naturally with scope
+matching. For example, a sink scoped to `checkout.` can receive `checkout.submit`, `checkout.stock.reserve`, and other
+related checkout events.
 
-Example:
+## Step
+
+`@Step` marks nested work within an active flow. Steps are useful when a root operation has internal operations that are
+important enough to track separately.
 
 ```java
+import ie.bitstep.mango.instrument.annotations.Flow;
+import org.springframework.stereotype.Service;
+
 @Service
 class CheckoutService {
 
@@ -34,6 +45,10 @@ class CheckoutService {
 ```
 
 ```java
+import ie.bitstep.mango.instrument.annotations.PushAttribute;
+import ie.bitstep.mango.instrument.annotations.Step;
+import org.springframework.stereotype.Service;
+
 @Service
 class StockService {
 
@@ -43,18 +58,26 @@ class StockService {
 }
 ```
 
-## Important Spring AOP Constraint
+The result is a root checkout flow with a nested stock reservation step. A sink can listen to both, only the root flow,
+only failures, only a particular scope, or only events that contain required metadata.
 
-Self-invocation does not pass through Spring proxies. If a method annotated with `@Step` is called from another method on the same bean, the aspect will not run.
-
-Use cross-bean calls for nested steps if you need the runtime behavior.
+> **NOTES:**
+>
+> * Steps should be used for meaningful nested work, not every private helper method.
+>
+> * A step outside an active flow can still be emitted as an event, but the model is most useful when steps are part of a
+>   root flow.
+>
+> * Spring proxy rules still apply. Cross-bean calls are the safest way to make nested steps visible to the runtime.
 
 ## Metadata
 
-You can enrich emitted events with:
+You can enrich emitted events by annotating method parameters:
 
-- `@PushAttribute`
-- `@PushContextValue`
-- `@Kind`
+* `@PushAttribute` adds business metadata to the event.
+* `@PushContextValue` adds runtime context to the event.
+* `@Kind` sets span-kind style metadata for consumers that care about that distinction.
 
-Attributes are usually business metadata. Context values are usually runtime metadata that sinks may need for routing or correlation.
+Attributes are usually things you would want to search, display, or assert against, such as a user id, order id, sku, or
+tenant id. Context values are usually values used by infrastructure code, such as correlation ids, trace ids, routing
+values, or runtime flags.
