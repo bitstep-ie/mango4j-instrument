@@ -8,7 +8,7 @@ For plain Spring:
 <dependency>
     <groupId>ie.bitstep.mango</groupId>
     <artifactId>mango4j-instrument-spring</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
 </dependency>
 ```
 
@@ -18,7 +18,7 @@ For Spring Boot:
 <dependency>
     <groupId>ie.bitstep.mango</groupId>
     <artifactId>mango4j-instrument-spring-boot</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
 </dependency>
 ```
 

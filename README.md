@@ -56,7 +56,7 @@ Add either the plain Spring runtime or the Spring Boot integration:
 <dependency>
     <groupId>ie.bitstep.mango</groupId>
     <artifactId>mango4j-instrument-spring</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
 </dependency>
 ```
 
@@ -64,7 +64,7 @@ Add either the plain Spring runtime or the Spring Boot integration:
 <dependency>
     <groupId>ie.bitstep.mango</groupId>
     <artifactId>mango4j-instrument-spring-boot</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
 </dependency>
 ```
 
