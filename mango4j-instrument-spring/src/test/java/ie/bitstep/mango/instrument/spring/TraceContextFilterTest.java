@@ -15,6 +15,7 @@ import org.slf4j.MDC;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import ie.bitstep.mango.instrument.core.FlowProcessorSupport;
+import ie.bitstep.mango.instrument.spring.AbstractTraceContextFilter;
 import ie.bitstep.mango.instrument.spring.web.TraceContextFilter;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -217,8 +218,8 @@ class TraceContextFilterTest {
 
 	@Test
 	void parse_helpers_return_empty_array_for_unparseable_inputs() throws Exception {
-		Method parseTraceparent = TraceContextFilter.class.getDeclaredMethod("parseTraceparent", String.class);
-		Method parseB3Single = TraceContextFilter.class.getDeclaredMethod("parseB3Single", String.class);
+		Method parseTraceparent = AbstractTraceContextFilter.class.getDeclaredMethod("parseTraceparent", String.class);
+		Method parseB3Single = AbstractTraceContextFilter.class.getDeclaredMethod("parseB3Single", String.class);
 		parseTraceparent.setAccessible(true);
 		parseB3Single.setAccessible(true);
 
@@ -228,7 +229,7 @@ class TraceContextFilterTest {
 
 	@Test
 	void parse_traceparent_returns_empty_array_for_too_few_parts_and_wrong_span_length() throws Exception {
-		Method parseTraceparent = TraceContextFilter.class.getDeclaredMethod("parseTraceparent", String.class);
+		Method parseTraceparent = AbstractTraceContextFilter.class.getDeclaredMethod("parseTraceparent", String.class);
 		parseTraceparent.setAccessible(true);
 
 		// fewer than 4 dash-separated parts → parts.length >= 4 is false
