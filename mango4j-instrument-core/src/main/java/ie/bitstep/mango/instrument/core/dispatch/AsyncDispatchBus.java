@@ -57,7 +57,9 @@ public final class AsyncDispatchBus implements AutoCloseable {
 		}
 
 		private void offer(FlowEvent event) {
-			queue.offer(event);
+			if (!queue.offer(event)) {
+				log.warn("Event dropped for sink {}: queue rejected offer", sink.getClass().getName());
+			}
 		}
 
 		private void shutdown() {
@@ -76,7 +78,7 @@ public final class AsyncDispatchBus implements AutoCloseable {
 					}
 				} catch (InterruptedException interruptedException) {
 					Thread.currentThread().interrupt();
-				} catch (Throwable throwable) {
+				} catch (Exception throwable) {
 					Throwable root = unwrap(throwable);
 					log.warn(
 							"Flow sink {} failed to handle event {} due to {}",
@@ -91,9 +93,14 @@ public final class AsyncDispatchBus implements AutoCloseable {
 		private static Throwable unwrap(Throwable throwable) {
 			Throwable current = throwable;
 			while (current instanceof InvocationTargetException || current instanceof UndeclaredThrowableException) {
-				Throwable next = current instanceof InvocationTargetException
-						? ((InvocationTargetException) current).getTargetException()
-						: ((UndeclaredThrowableException) current).getUndeclaredThrowable();
+				Throwable next;
+				if (current instanceof InvocationTargetException ite) {
+					next = ite.getTargetException();
+				} else if (current instanceof UndeclaredThrowableException ute) {
+					next = ute.getUndeclaredThrowable();
+				} else {
+					break;
+				}
 				if (next == null || next == current) {
 					break;
 				}

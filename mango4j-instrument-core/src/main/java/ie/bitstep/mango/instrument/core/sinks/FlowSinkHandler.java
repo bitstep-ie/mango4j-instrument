@@ -4,5 +4,5 @@ import ie.bitstep.mango.instrument.model.FlowEvent;
 
 @FunctionalInterface
 public interface FlowSinkHandler {
-	void handle(FlowEvent event) throws Exception;
+	void handle(FlowEvent event);
 }

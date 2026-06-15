@@ -104,8 +104,6 @@ public class FlowWebInterceptor implements HandlerInterceptor {
 		}
 
 		try {
-			FlowEvent current = support.currentContext();
-
 			int statusCode = response.getStatus();
 			boolean clientOrServerError = statusCode >= 400;
 

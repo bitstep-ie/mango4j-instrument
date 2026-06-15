@@ -9,6 +9,8 @@ import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import ie.bitstep.mango.instrument.core.FlowProcessorSupport;
 
@@ -17,6 +19,14 @@ import ie.bitstep.mango.instrument.core.FlowProcessorSupport;
  * and populates SLF4J MDC keys ({@code traceId}, {@code spanId}, {@code parentSpanId}) for the duration of the request.
  */
 public final class TraceContextFilter implements Filter {
+	private static final Logger log = LoggerFactory.getLogger(TraceContextFilter.class);
+
+	private static final String TRACE_ID = "traceId";
+	private static final String SPAN_ID = "spanId";
+	private static final String PARENT_SPAN_ID = "parentSpanId";
+	private static final String TRACESTATE = "tracestate";
+	private static final String TRACEPARENT = "traceparent";
+
 	private final FlowProcessorSupport support;
 
 	/** @param support used to clean up thread-local flow state after each request */
@@ -27,15 +37,15 @@ public final class TraceContextFilter implements Filter {
 	@Override
 	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
 			throws IOException, ServletException {
-		String previousTraceId = MDC.get("traceId");
-		String previousSpanId = MDC.get("spanId");
-		String previousParentSpanId = MDC.get("parentSpanId");
-		String previousTracestate = MDC.get("tracestate");
-		String previousTraceparent = MDC.get("traceparent");
+		String previousTraceId = MDC.get(TRACE_ID);
+		String previousSpanId = MDC.get(SPAN_ID);
+		String previousParentSpanId = MDC.get(PARENT_SPAN_ID);
+		String previousTracestate = MDC.get(TRACESTATE);
+		String previousTraceparent = MDC.get(TRACEPARENT);
 		try {
 			if (request instanceof HttpServletRequest httpRequest) {
-				String traceparent = header(httpRequest, "traceparent");
-				String tracestate = header(httpRequest, "tracestate");
+				String traceparent = header(httpRequest, TRACEPARENT);
+				String tracestate = header(httpRequest, TRACESTATE);
 				String b3 = header(httpRequest, "b3");
 				String traceId = null;
 				String spanId = null;
@@ -43,13 +53,13 @@ public final class TraceContextFilter implements Filter {
 
 				if (traceparent != null) {
 					String[] parsed = parseTraceparent(traceparent);
-					if (parsed != null) {
+					if (parsed.length > 0) {
 						traceId = parsed[0];
 						spanId = parsed[1];
 					}
 				} else if (b3 != null) {
 					String[] parsed = parseB3Single(b3);
-					if (parsed != null) {
+					if (parsed.length > 0) {
 						traceId = parsed[0];
 						spanId = parsed[1];
 						parentSpanId = parsed[2];
@@ -60,22 +70,22 @@ public final class TraceContextFilter implements Filter {
 					parentSpanId = header(httpRequest, "X-B3-ParentSpanId");
 				}
 
-				putIfPresent("traceparent", traceparent);
-				putIfPresent("tracestate", tracestate);
-				putIfPresent("traceId", traceId);
-				putIfPresent("spanId", spanId);
-				putIfPresent("parentSpanId", parentSpanId);
+				putIfPresent(TRACEPARENT, traceparent);
+				putIfPresent(TRACESTATE, tracestate);
+				putIfPresent(TRACE_ID, traceId);
+				putIfPresent(SPAN_ID, spanId);
+				putIfPresent(PARENT_SPAN_ID, parentSpanId);
 			}
 			chain.doFilter(request, response);
 		} finally {
 			if (support != null) {
 				support.cleanupThreadLocals();
 			}
-			restore("traceId", previousTraceId);
-			restore("spanId", previousSpanId);
-			restore("parentSpanId", previousParentSpanId);
-			restore("tracestate", previousTracestate);
-			restore("traceparent", previousTraceparent);
+			restore(TRACE_ID, previousTraceId);
+			restore(SPAN_ID, previousSpanId);
+			restore(PARENT_SPAN_ID, previousParentSpanId);
+			restore(TRACESTATE, previousTracestate);
+			restore(TRACEPARENT, previousTraceparent);
 		}
 	}
 
@@ -104,9 +114,10 @@ public final class TraceContextFilter implements Filter {
 			if (parts.length >= 4 && parts[1].length() == 32 && parts[2].length() == 16) {
 				return new String[] {parts[1], parts[2], null};
 			}
-		} catch (Exception ignored) {
+		} catch (Exception e) {
+			log.debug("Failed to parse traceparent header: {}", e.getMessage());
 		}
-		return null;
+		return new String[0];
 	}
 
 	private static String[] parseB3Single(String b3) {
@@ -115,8 +126,9 @@ public final class TraceContextFilter implements Filter {
 			if (parts.length >= 2) {
 				return new String[] {parts[0], parts[1], parts.length >= 4 ? parts[3] : null};
 			}
-		} catch (Exception ignored) {
+		} catch (Exception e) {
+			log.debug("Failed to parse B3 single header: {}", e.getMessage());
 		}
-		return null;
+		return new String[0];
 	}
 }

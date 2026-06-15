@@ -216,27 +216,27 @@ class TraceContextFilterTest {
 	}
 
 	@Test
-	void parse_helpers_return_null_for_null_inputs() throws Exception {
+	void parse_helpers_return_empty_array_for_unparseable_inputs() throws Exception {
 		Method parseTraceparent = TraceContextFilter.class.getDeclaredMethod("parseTraceparent", String.class);
 		Method parseB3Single = TraceContextFilter.class.getDeclaredMethod("parseB3Single", String.class);
 		parseTraceparent.setAccessible(true);
 		parseB3Single.setAccessible(true);
 
-		assertThat(parseTraceparent.invoke(null, new Object[] {null})).isNull();
-		assertThat(parseB3Single.invoke(null, new Object[] {null})).isNull();
+		assertThat((String[]) parseTraceparent.invoke(null, new Object[] {null})).isEmpty();
+		assertThat((String[]) parseB3Single.invoke(null, new Object[] {null})).isEmpty();
 	}
 
 	@Test
-	void parse_traceparent_returns_null_for_too_few_parts_and_wrong_span_length() throws Exception {
+	void parse_traceparent_returns_empty_array_for_too_few_parts_and_wrong_span_length() throws Exception {
 		Method parseTraceparent = TraceContextFilter.class.getDeclaredMethod("parseTraceparent", String.class);
 		parseTraceparent.setAccessible(true);
 
 		// fewer than 4 dash-separated parts → parts.length >= 4 is false
-		assertThat(parseTraceparent.invoke(null, "00-abc-def")).isNull();
+		assertThat((String[]) parseTraceparent.invoke(null, "00-abc-def")).isEmpty();
 
 		// exactly 32-char traceId but span part is not 16 chars → parts[2].length() == 16 is false
 		String traceId = "a".repeat(32);
-		assertThat(parseTraceparent.invoke(null, "00-" + traceId + "-shortspan-01"))
-				.isNull();
+		assertThat((String[]) parseTraceparent.invoke(null, "00-" + traceId + "-shortspan-01"))
+				.isEmpty();
 	}
 }

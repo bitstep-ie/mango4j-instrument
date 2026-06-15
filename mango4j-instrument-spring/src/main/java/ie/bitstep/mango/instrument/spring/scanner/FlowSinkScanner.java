@@ -17,8 +17,6 @@ import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.BeanPostProcessor;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationContextAware;
 import org.springframework.core.BridgeMethodResolver;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.util.ReflectionUtils;
@@ -45,11 +43,10 @@ import ie.bitstep.mango.instrument.core.sinks.FlowHandlerRegistry;
 import ie.bitstep.mango.instrument.model.FlowEvent;
 import ie.bitstep.mango.instrument.spring.annotations.FlowSink;
 
-public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAware {
+public class FlowSinkScanner implements BeanPostProcessor {
 	private static final Logger log = LoggerFactory.getLogger(FlowSinkScanner.class);
 
 	private final java.util.function.Supplier<FlowHandlerRegistry> registrySupplier;
-	private ApplicationContext applicationContext;
 
 	public FlowSinkScanner(FlowHandlerRegistry registry) {
 		Objects.requireNonNull(registry, "registry");
@@ -59,11 +56,6 @@ public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAwa
 	public FlowSinkScanner(ObjectProvider<FlowHandlerRegistry> registryProvider) {
 		Objects.requireNonNull(registryProvider, "registryProvider");
 		this.registrySupplier = registryProvider::getObject;
-	}
-
-	@Override
-	public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-		this.applicationContext = applicationContext;
 	}
 
 	@Override
@@ -163,6 +155,48 @@ public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAwa
 			return null;
 		}
 
+		EnumSet<OnFlowLifecycle.Lifecycle> lifecycles =
+				buildMethodLifecycles(started, completed, success, failure, lifecycle, classLifecycles);
+
+		ReflectionUtils.makeAccessible(invocable);
+		Parameter[] parameters = invocable.getParameters();
+		Annotation[][] parameterAnnotations = invocable.getParameterAnnotations();
+		List<Function<FlowEvent, Object>> bindings = new ArrayList<>(parameters.length);
+		boolean allowThrowable = allowsThrowable(failure, lifecycle, completed, method);
+		for (int index = 0; index < parameters.length; index++) {
+			Function<FlowEvent, Object> binding =
+					buildParamBinding(parameters[index], parameterAnnotations[index], allowThrowable);
+			if (binding == null) {
+				return null;
+			}
+			bindings.add(binding);
+		}
+
+		boolean failureFinish = completed
+				&& method.isAnnotationPresent(OnOutcome.class)
+				&& method.getAnnotation(OnOutcome.class).value() == Outcome.FAILURE;
+		return new CompiledHandler(
+				bean,
+				invocable,
+				classScopes,
+				extractScopes(method.getAnnotations()),
+				lifecycles,
+				method.getAnnotation(OnOutcome.class),
+				method.getAnnotation(RequiredAttributes.class),
+				method.getAnnotation(RequiredEventContext.class),
+				bindings,
+				fallback,
+				failure,
+				failureFinish);
+	}
+
+	private static EnumSet<OnFlowLifecycle.Lifecycle> buildMethodLifecycles(
+			boolean started,
+			boolean completed,
+			boolean success,
+			boolean failure,
+			OnFlowLifecycle lifecycle,
+			Set<OnFlowLifecycle.Lifecycle> classLifecycles) {
 		EnumSet<OnFlowLifecycle.Lifecycle> lifecycles = EnumSet.noneOf(OnFlowLifecycle.Lifecycle.class);
 		if (started) {
 			lifecycles.add(OnFlowLifecycle.Lifecycle.STARTED);
@@ -186,38 +220,14 @@ public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAwa
 		if (!classLifecycles.isEmpty()) {
 			lifecycles.retainAll(classLifecycles);
 		}
+		return lifecycles;
+	}
 
-		ReflectionUtils.makeAccessible(invocable);
-		Parameter[] parameters = invocable.getParameters();
-		Annotation[][] parameterAnnotations = invocable.getParameterAnnotations();
-		List<Function<FlowEvent, Object>> bindings = new ArrayList<>(parameters.length);
-		boolean allowThrowable = failure
+	private static boolean allowsThrowable(
+			boolean failure, OnFlowLifecycle lifecycle, boolean completed, Method method) {
+		return failure
 				|| (lifecycle != null && lifecycle.value() == OnFlowLifecycle.Lifecycle.FAILED)
 				|| (completed
-						&& method.isAnnotationPresent(OnOutcome.class)
-						&& method.getAnnotation(OnOutcome.class).value() == Outcome.FAILURE);
-		for (int index = 0; index < parameters.length; index++) {
-			Function<FlowEvent, Object> binding =
-					buildParamBinding(parameters[index], parameterAnnotations[index], allowThrowable);
-			if (binding == null) {
-				return null;
-			}
-			bindings.add(binding);
-		}
-
-		return new CompiledHandler(
-				bean,
-				invocable,
-				classScopes,
-				extractScopes(method.getAnnotations()),
-				lifecycles,
-				method.getAnnotation(OnOutcome.class),
-				method.getAnnotation(RequiredAttributes.class),
-				method.getAnnotation(RequiredEventContext.class),
-				bindings,
-				fallback,
-				failure,
-				completed
 						&& method.isAnnotationPresent(OnOutcome.class)
 						&& method.getAnnotation(OnOutcome.class).value() == Outcome.FAILURE);
 	}
@@ -229,54 +239,58 @@ public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAwa
 			return event -> event;
 		}
 		if (allowThrowable && Throwable.class.isAssignableFrom(type)) {
-			boolean root = false;
-			for (Annotation annotation : annotations) {
-				if (annotation instanceof FlowException flowException
-						&& flowException.value() == FlowException.Source.ROOT) {
-					root = true;
-				}
-			}
-			final boolean rootCause = root;
-			return event -> chooseThrowable(event, rootCause);
+			return bindThrowable(annotations);
 		}
 		for (Annotation annotation : annotations) {
-			if (annotation instanceof PullAllAttributes) {
-				return event -> event.attributes().map();
-			}
-			if (annotation instanceof PullAllContextValues) {
-				return FlowEvent::eventContext;
-			}
-			if (annotation instanceof PullAttribute pullAttribute) {
-				return event -> coerce(event.attributes().map().get(pullAttribute.value()), type);
-			}
-			if (annotation instanceof PullContextValue pullContextValue) {
-				return event -> coerce(event.eventContext().get(pullContextValue.value()), type);
+			Function<FlowEvent, Object> binding = bindAnnotation(annotation, type);
+			if (binding != null) {
+				return binding;
 			}
 		}
 		return null;
 	}
 
+	private static Function<FlowEvent, Object> bindThrowable(Annotation[] annotations) {
+		boolean root = false;
+		for (Annotation annotation : annotations) {
+			if (annotation instanceof FlowException flowException
+					&& flowException.value() == FlowException.Source.ROOT) {
+				root = true;
+			}
+		}
+		final boolean rootCause = root;
+		return event -> chooseThrowable(event, rootCause);
+	}
+
+	private static Function<FlowEvent, Object> bindAnnotation(Annotation annotation, Class<?> type) {
+		if (annotation instanceof PullAllAttributes) {
+			return event -> event.attributes().map();
+		}
+		if (annotation instanceof PullAllContextValues) {
+			return FlowEvent::eventContext;
+		}
+		if (annotation instanceof PullAttribute pullAttribute) {
+			return event -> coerce(event.attributes().map().get(pullAttribute.value()), type);
+		}
+		if (annotation instanceof PullContextValue pullContextValue) {
+			return event -> coerce(event.eventContext().get(pullContextValue.value()), type);
+		}
+		return null;
+	}
+
 	private record CompiledSink(List<CompiledHandler> handlers, List<CompiledHandler> fallbacks) {
-		void dispatch(FlowEvent event) throws Exception {
+		void dispatch(FlowEvent event) {
 			boolean anyMatched = false;
 			boolean failed = "FAILED".equals(String.valueOf(event.eventContext().get("lifecycle")));
 			boolean failureMatched = false;
 
 			if (failed) {
-				for (CompiledHandler handler : handlers) {
-					if (handler.flowFailure && handler.matches(event)) {
-						handler.invoke(event);
-						anyMatched = true;
-						failureMatched = true;
-					}
-				}
+				failureMatched = dispatchFailureHandlers(event);
+				anyMatched = failureMatched;
 			}
 
 			for (CompiledHandler handler : handlers) {
-				if (failed && handler.flowFailure) {
-					continue;
-				}
-				if (failed && handler.failureFinish && failureMatched) {
+				if (failed && (handler.flowFailure || (handler.failureFinish && failureMatched))) {
 					continue;
 				}
 				if (handler.matches(event)) {
@@ -291,8 +305,20 @@ public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAwa
 				}
 			}
 		}
+
+		private boolean dispatchFailureHandlers(FlowEvent event) {
+			boolean matched = false;
+			for (CompiledHandler handler : handlers) {
+				if (handler.flowFailure && handler.matches(event)) {
+					handler.invoke(event);
+					matched = true;
+				}
+			}
+			return matched;
+		}
 	}
 
+	@SuppressWarnings("java:S107")
 	private static final class CompiledHandler {
 		private final Object bean;
 		private final Method method;
@@ -336,11 +362,7 @@ public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAwa
 
 		private boolean matches(FlowEvent event) {
 			String lifecycle = String.valueOf(event.eventContext().get("lifecycle"));
-			OnFlowLifecycle.Lifecycle resolved = "STARTED".equals(lifecycle)
-					? OnFlowLifecycle.Lifecycle.STARTED
-					: "FAILED".equals(lifecycle)
-							? OnFlowLifecycle.Lifecycle.FAILED
-							: OnFlowLifecycle.Lifecycle.COMPLETED;
+			OnFlowLifecycle.Lifecycle resolved = resolveLifecycle(lifecycle);
 			if (!lifecycles.contains(resolved)) {
 				return false;
 			}
@@ -362,6 +384,16 @@ public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAwa
 			return contextPresent(event, requiredEventContext == null ? null : requiredEventContext.value());
 		}
 
+		private static OnFlowLifecycle.Lifecycle resolveLifecycle(String lifecycle) {
+			if ("STARTED".equals(lifecycle)) {
+				return OnFlowLifecycle.Lifecycle.STARTED;
+			}
+			if ("FAILED".equals(lifecycle)) {
+				return OnFlowLifecycle.Lifecycle.FAILED;
+			}
+			return OnFlowLifecycle.Lifecycle.COMPLETED;
+		}
+
 		private void invoke(FlowEvent event) {
 			Object[] args = new Object[bindings.size()];
 			for (int index = 0; index < bindings.size(); index++) {
@@ -369,58 +401,59 @@ public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAwa
 			}
 			ReflectionUtils.invokeMethod(method, bean, args);
 		}
-	}
 
-	private static boolean attributesPresent(FlowEvent event, String[] required) {
-		if (required == null || required.length == 0) {
-			return true;
-		}
-		Map<String, Object> attributes = event.attributes().map();
-		for (String key : required) {
-			if (key == null || key.isBlank() || !attributes.containsKey(key)) {
-				return false;
+		private static boolean attributesPresent(FlowEvent event, String[] required) {
+			if (required == null || required.length == 0) {
+				return true;
 			}
-		}
-		return true;
-	}
-
-	private static boolean contextPresent(FlowEvent event, String[] required) {
-		if (required == null || required.length == 0) {
-			return true;
-		}
-		Map<String, Object> context = event.eventContext();
-		for (String key : required) {
-			if (key == null || key.isBlank() || !context.containsKey(key)) {
-				return false;
+			Map<String, Object> attributes = event.attributes().map();
+			for (String key : required) {
+				if (key == null || key.isBlank() || !attributes.containsKey(key)) {
+					return false;
+				}
 			}
-		}
-		return true;
-	}
-
-	private static boolean scopeMatches(List<String> scopes, String name) {
-		if (scopes == null || scopes.isEmpty()) {
 			return true;
 		}
-		String candidate = name == null ? "" : name;
-		for (String scope : scopes) {
+
+		private static boolean contextPresent(FlowEvent event, String[] required) {
+			if (required == null || required.length == 0) {
+				return true;
+			}
+			Map<String, Object> context = event.eventContext();
+			for (String key : required) {
+				if (key == null || key.isBlank() || !context.containsKey(key)) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		private static boolean scopeMatches(List<String> scopes, String name) {
+			if (scopes == null || scopes.isEmpty()) {
+				return true;
+			}
+			String candidate = name == null ? "" : name;
+			for (String scope : scopes) {
+				if (scopeEntryMatches(scope, candidate)) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		private static boolean scopeEntryMatches(String scope, String candidate) {
 			if (scope == null) {
-				continue;
+				return false;
 			}
 			String trimmed = scope.trim();
 			if (trimmed.isEmpty()) {
 				return true;
 			}
 			if (trimmed.endsWith(".")) {
-				if (candidate.startsWith(trimmed)) {
-					return true;
-				}
-			} else {
-				if (candidate.equals(trimmed) || candidate.startsWith(trimmed + ".")) {
-					return true;
-				}
+				return candidate.startsWith(trimmed);
 			}
+			return candidate.equals(trimmed) || candidate.startsWith(trimmed + ".");
 		}
-		return false;
 	}
 
 	private static Throwable chooseThrowable(FlowEvent event, boolean rootCauseOnly) {

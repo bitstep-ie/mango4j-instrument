@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ie.bitstep.mango.instrument.validation.FlowAttributeValidator;
 
+@SuppressWarnings("java:S2143")
 public class HibernateEntityDetector implements FlowAttributeValidator {
 	private static final Logger log = LoggerFactory.getLogger(HibernateEntityDetector.class);
 	private static final Set<Class<?>> SIMPLE_TYPES = Set.of(
@@ -61,14 +62,7 @@ public class HibernateEntityDetector implements FlowAttributeValidator {
 			String message = String.format(
 					"Hibernate entity detected in flow attribute '%s' at path '%s'. Class: %s",
 					root, path, type.getName());
-			if (level == HibernateEntityLogLevel.ERROR) {
-				throw new IllegalArgumentException(message);
-			}
-			if (level == HibernateEntityLogLevel.WARN) {
-				log.warn(message);
-			} else {
-				log.info(message);
-			}
+			reportEntity(message, level);
 			return;
 		}
 		if (isTerminal(type)) {
@@ -92,10 +86,7 @@ public class HibernateEntityDetector implements FlowAttributeValidator {
 			return;
 		}
 		if (type.isArray()) {
-			int length = java.lang.reflect.Array.getLength(value);
-			for (int index = 0; index < length; index++) {
-				detect(root, path + "[" + index + "]", java.lang.reflect.Array.get(value, index), visited, level);
-			}
+			detectArray(root, path, value, visited, level);
 			return;
 		}
 		if (value instanceof Optional<?> optional) {
@@ -103,6 +94,36 @@ public class HibernateEntityDetector implements FlowAttributeValidator {
 			return;
 		}
 
+		detectFields(root, path, value, type, visited, level);
+	}
+
+	private static void reportEntity(String message, HibernateEntityLogLevel level) {
+		if (level == HibernateEntityLogLevel.ERROR) {
+			throw new IllegalArgumentException(message);
+		}
+		if (level == HibernateEntityLogLevel.WARN) {
+			log.warn(message);
+		} else {
+			log.info(message);
+		}
+	}
+
+	private static void detectArray(
+			String root, String path, Object value, Map<Object, Boolean> visited, HibernateEntityLogLevel level) {
+		int length = java.lang.reflect.Array.getLength(value);
+		for (int index = 0; index < length; index++) {
+			detect(root, path + "[" + index + "]", java.lang.reflect.Array.get(value, index), visited, level);
+		}
+	}
+
+	@SuppressWarnings("java:S3011")
+	private static void detectFields(
+			String root,
+			String path,
+			Object value,
+			Class<?> type,
+			Map<Object, Boolean> visited,
+			HibernateEntityLogLevel level) {
 		for (Field field : getAllFields(type)) {
 			if (Modifier.isStatic(field.getModifiers()) || Modifier.isTransient(field.getModifiers())) {
 				continue;
@@ -112,7 +133,8 @@ public class HibernateEntityDetector implements FlowAttributeValidator {
 					field.setAccessible(true);
 				}
 				detect(root, path + "." + field.getName(), field.get(value), visited, level);
-			} catch (IllegalAccessException | InaccessibleObjectException ignored) {
+			} catch (IllegalAccessException | InaccessibleObjectException e) {
+				log.debug("Cannot access field {} on {}: {}", field.getName(), type.getName(), e.getMessage());
 			}
 		}
 	}

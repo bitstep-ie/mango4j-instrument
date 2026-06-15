@@ -222,15 +222,15 @@ class TraceContextWebFilterTest {
 	}
 
 	@Test
-	void parse_helpers_return_null_for_null_inputs() throws Exception {
+	void parse_helpers_return_empty_array_for_unparseable_inputs() throws Exception {
 		Method parseTraceparent = TraceContextWebFilter.class.getDeclaredMethod("parseTraceparent", String.class);
 		Method parseB3Single = TraceContextWebFilter.class.getDeclaredMethod("parseB3Single", String.class);
 		parseTraceparent.setAccessible(true);
 		parseB3Single.setAccessible(true);
 
-		assertThat(parseTraceparent.invoke(null, new Object[] {null})).isNull();
-		assertThat(parseB3Single.invoke(null, new Object[] {null})).isNull();
-		assertThat(parseTraceparent.invoke(null, "00-12345678901234567890123456789012-short-span-01"))
-				.isNull();
+		assertThat((String[]) parseTraceparent.invoke(null, new Object[] {null})).isEmpty();
+		assertThat((String[]) parseB3Single.invoke(null, new Object[] {null})).isEmpty();
+		assertThat((String[]) parseTraceparent.invoke(null, "00-12345678901234567890123456789012-short-span-01"))
+				.isEmpty();
 	}
 }

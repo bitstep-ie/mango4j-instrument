@@ -34,13 +34,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class FlowSinkScannerInternalsTest {
 
+	private static Class<?> compiledHandlerClass() {
+		return Arrays.stream(FlowSinkScanner.class.getDeclaredClasses())
+				.filter(c -> c.getSimpleName().equals("CompiledHandler"))
+				.findFirst()
+				.orElseThrow();
+	}
+
 	@Test
 	void helper_methods_cover_matching_and_coercion_edges() throws Exception {
-		Method scopeMatches = FlowSinkScanner.class.getDeclaredMethod("scopeMatches", List.class, String.class);
+		Class<?> handlerClass = compiledHandlerClass();
+		Method scopeMatches = handlerClass.getDeclaredMethod("scopeMatches", List.class, String.class);
 		Method attributesPresent =
-				FlowSinkScanner.class.getDeclaredMethod("attributesPresent", FlowEvent.class, String[].class);
+				handlerClass.getDeclaredMethod("attributesPresent", FlowEvent.class, String[].class);
 		Method contextPresent =
-				FlowSinkScanner.class.getDeclaredMethod("contextPresent", FlowEvent.class, String[].class);
+				handlerClass.getDeclaredMethod("contextPresent", FlowEvent.class, String[].class);
 		Method chooseThrowable =
 				FlowSinkScanner.class.getDeclaredMethod("chooseThrowable", FlowEvent.class, boolean.class);
 		Method coerce = FlowSinkScanner.class.getDeclaredMethod("coerce", Object.class, Class.class);
@@ -360,11 +368,12 @@ class FlowSinkScannerInternalsTest {
 
 	@Test
 	void helper_methods_cover_edge_cases_for_attributes_context_and_scope() throws Exception {
-		Method scopeMatches = FlowSinkScanner.class.getDeclaredMethod("scopeMatches", List.class, String.class);
+		Class<?> handlerClass = compiledHandlerClass();
+		Method scopeMatches = handlerClass.getDeclaredMethod("scopeMatches", List.class, String.class);
 		Method attributesPresent =
-				FlowSinkScanner.class.getDeclaredMethod("attributesPresent", FlowEvent.class, String[].class);
+				handlerClass.getDeclaredMethod("attributesPresent", FlowEvent.class, String[].class);
 		Method contextPresent =
-				FlowSinkScanner.class.getDeclaredMethod("contextPresent", FlowEvent.class, String[].class);
+				handlerClass.getDeclaredMethod("contextPresent", FlowEvent.class, String[].class);
 		scopeMatches.setAccessible(true);
 		attributesPresent.setAccessible(true);
 		contextPresent.setAccessible(true);
