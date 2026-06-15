@@ -143,7 +143,7 @@ public class FlowWebInterceptor implements HandlerInterceptor {
 	private static FlowMeta buildStartMeta(Method method) {
 		Kind kindAnnotation = method.getAnnotation(Kind.class);
 		FlowMeta.Builder builder = FlowMeta.builder();
-		if (kindAnnotation != null && kindAnnotation.value() != null) {
+		if (kindAnnotation != null) {
 			builder.kind(kindAnnotation.value().name());
 		} else {
 			builder.kind("SERVER"); // controllers are SERVER spans by default

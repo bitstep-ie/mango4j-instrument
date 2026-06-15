@@ -171,16 +171,14 @@ public class FlowAspect {
 	private static String extractStepKind(ProceedingJoinPoint joinPoint) {
 		Kind annotation =
 				((MethodSignature) joinPoint.getSignature()).getMethod().getAnnotation(Kind.class);
-		return annotation != null && annotation.value() != null
-				? annotation.value().name()
-				: SpanKind.INTERNAL.name();
+		return annotation != null ? annotation.value().name() : SpanKind.INTERNAL.name();
 	}
 
 	private static FlowMeta buildMeta(ProceedingJoinPoint joinPoint, StatusHint statusHint) {
 		Kind annotation =
 				((MethodSignature) joinPoint.getSignature()).getMethod().getAnnotation(Kind.class);
 		FlowMeta.Builder builder = FlowMeta.builder();
-		if (annotation != null && annotation.value() != null) {
+		if (annotation != null) {
 			builder.kind(annotation.value().name());
 		}
 		if (statusHint != null) {

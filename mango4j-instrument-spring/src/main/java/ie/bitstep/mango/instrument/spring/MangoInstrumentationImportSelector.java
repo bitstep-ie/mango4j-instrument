@@ -14,20 +14,23 @@ import org.springframework.util.ClassUtils;
 public class MangoInstrumentationImportSelector implements ImportSelector {
 	@Override
 	public String[] selectImports(AnnotationMetadata importingClassMetadata) {
+		ClassLoader cl = classLoader();
 		List<String> imports = new ArrayList<>();
 		imports.add(MangoInstrumentationConfiguration.class.getName());
 
-		if (ClassUtils.isPresent("jakarta.servlet.Filter", getClass().getClassLoader())) {
+		if (ClassUtils.isPresent("jakarta.servlet.Filter", cl)) {
 			imports.add(MangoServletTraceConfiguration.class.getName());
 		}
-		if (ClassUtils.isPresent(
-				"org.springframework.web.servlet.HandlerInterceptor", getClass().getClassLoader())) {
+		if (ClassUtils.isPresent("org.springframework.web.servlet.HandlerInterceptor", cl)) {
 			imports.add(MangoServletFlowConfiguration.class.getName());
 		}
-		if (ClassUtils.isPresent(
-				"org.springframework.web.server.WebFilter", getClass().getClassLoader())) {
+		if (ClassUtils.isPresent("org.springframework.web.server.WebFilter", cl)) {
 			imports.add(MangoWebFluxTraceConfiguration.class.getName());
 		}
 		return imports.toArray(String[]::new);
+	}
+
+	protected ClassLoader classLoader() {
+		return getClass().getClassLoader();
 	}
 }

@@ -42,9 +42,11 @@ public final class AsyncDispatchBus implements AutoCloseable {
 		workers.clear();
 	}
 
+	static final int MAX_QUEUE_DEPTH = 10_000;
+
 	private static final class Worker implements Runnable {
 		private final FlowSinkHandler sink;
-		private final LinkedBlockingDeque<FlowEvent> queue = new LinkedBlockingDeque<>();
+		private final LinkedBlockingDeque<FlowEvent> queue = new LinkedBlockingDeque<>(MAX_QUEUE_DEPTH);
 		private final AtomicBoolean running = new AtomicBoolean(true);
 		private final Thread thread;
 
@@ -85,7 +87,7 @@ public final class AsyncDispatchBus implements AutoCloseable {
 					log.warn(
 							"Flow sink {} failed to handle event {} due to {}",
 							sink.getClass().getName(),
-							event != null ? event.name() : "<none>",
+							event.name(),
 							root.getMessage(),
 							root);
 				}

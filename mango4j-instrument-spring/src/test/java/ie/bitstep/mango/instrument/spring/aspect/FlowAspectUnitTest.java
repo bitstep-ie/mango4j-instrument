@@ -211,6 +211,24 @@ class FlowAspectUnitTest {
 		assertThat(support.cleanupCalls).isZero();
 	}
 
+	@Test
+	void resolve_flow_and_step_name_fall_back_to_signature_when_annotation_is_absent() throws Exception {
+		Method resolveFlowName = FlowAspect.class.getDeclaredMethod("resolveFlowName", ProceedingJoinPoint.class);
+		Method resolveStepName = FlowAspect.class.getDeclaredMethod("resolveStepName", ProceedingJoinPoint.class);
+		resolveFlowName.setAccessible(true);
+		resolveStepName.setAccessible(true);
+
+		// @Step method has no @Flow annotation — resolveFlowName returns the signature
+		Method stepMethod = Samples.class.getDeclaredMethod("internalStep", String.class, String.class);
+		assertThat(resolveFlowName.invoke(null, joinPoint(stepMethod, new Object[0], () -> null)))
+				.isEqualTo("Samples.internalStep(..)");
+
+		// @Flow method has no @Step annotation — resolveStepName returns the signature
+		Method flowMethod = Samples.class.getDeclaredMethod("voidFlow");
+		assertThat(resolveStepName.invoke(null, joinPoint(flowMethod, new Object[0], () -> null)))
+				.isEqualTo("Samples.voidFlow(..)");
+	}
+
 	private static ProceedingJoinPoint joinPoint(Method method, Object[] args, ProceedCallback callback) {
 		MethodSignature signature = (MethodSignature) Proxy.newProxyInstance(
 				MethodSignature.class.getClassLoader(),

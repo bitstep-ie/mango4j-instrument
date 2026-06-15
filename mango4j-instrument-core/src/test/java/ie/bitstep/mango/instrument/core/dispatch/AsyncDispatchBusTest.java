@@ -5,6 +5,8 @@ import java.lang.reflect.Method;
 import java.lang.reflect.UndeclaredThrowableException;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 import ie.bitstep.mango.instrument.core.sinks.FlowHandlerRegistry;
@@ -104,6 +106,39 @@ class AsyncDispatchBusTest {
 		assertThat(unwrap.invoke(null, new InvocationTargetException(null)))
 				.isInstanceOf(InvocationTargetException.class);
 		assertThat(unwrap.invoke(null, selfReferential)).isSameAs(selfReferential);
+	}
+
+	@Test
+	void drops_event_and_logs_warn_when_queue_is_at_capacity() throws Exception {
+		CountDownLatch workerOccupied = new CountDownLatch(1);
+		CountDownLatch releaseWorker = new CountDownLatch(1);
+
+		FlowHandlerRegistry registry = new FlowHandlerRegistry();
+		registry.register(event -> {
+			workerOccupied.countDown();
+			try {
+				releaseWorker.await();
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+		});
+
+		AsyncDispatchBus bus = new AsyncDispatchBus(registry);
+
+		// Block the worker thread inside the sink so it can't drain the queue
+		bus.dispatch(FlowEvent.builder().name("blocker").build());
+		assertThat(workerOccupied.await(2, TimeUnit.SECONDS)).isTrue();
+
+		// Fill the queue to its capacity limit
+		for (int i = 0; i < AsyncDispatchBus.MAX_QUEUE_DEPTH; i++) {
+			bus.dispatch(FlowEvent.builder().name("flood").build());
+		}
+
+		// This dispatch overflows the queue — the warn branch in offer() is hit
+		bus.dispatch(FlowEvent.builder().name("overflow").build());
+
+		releaseWorker.countDown();
+		bus.close();
 	}
 
 	private static void awaitSize(List<FlowEvent> events, int expectedSize) {

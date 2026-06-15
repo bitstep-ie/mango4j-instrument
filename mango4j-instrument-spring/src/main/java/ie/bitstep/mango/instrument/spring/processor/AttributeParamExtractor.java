@@ -46,7 +46,7 @@ public final class AttributeParamExtractor {
 	}
 
 	private static void addToMap(String key, Object value, Map<String, Object> target) {
-		if (key == null || key.isBlank()) {
+		if (key.isBlank()) {
 			return;
 		}
 		HibernateEntityDetector.checkNotHibernateEntity(key, value, HibernateEntityLogLevel.ERROR);
