@@ -1,5 +1,12 @@
 package ie.bitstep.mango.instrument.spring;
 
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.beans.factory.config.BeanPostProcessor;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.EnableAspectJAutoProxy;
+import org.springframework.context.annotation.Role;
 import ie.bitstep.mango.instrument.context.FlowContext;
 import ie.bitstep.mango.instrument.core.FlowProcessorSupport;
 import ie.bitstep.mango.instrument.core.dispatch.AsyncDispatchBus;
@@ -12,72 +19,99 @@ import ie.bitstep.mango.instrument.spring.scanner.FlowSinkScanner;
 import ie.bitstep.mango.instrument.spring.validation.HibernateEntityDetector;
 import ie.bitstep.mango.instrument.spring.validation.HibernateEntityLogLevel;
 import ie.bitstep.mango.instrument.validation.FlowAttributeValidator;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.config.BeanDefinition;
-import org.springframework.beans.factory.config.BeanPostProcessor;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.EnableAspectJAutoProxy;
-import org.springframework.context.annotation.Role;
 
 @Configuration(proxyBeanMethods = false)
 @EnableAspectJAutoProxy(proxyTargetClass = true, exposeProxy = true)
 public class MangoInstrumentationConfiguration {
 
-    @Bean
-    public FlowProcessorSupport flowProcessorSupport() {
-        return new FlowProcessorSupport();
-    }
+	/** @return shared thread-local storage for active flow and step state */
+	@Bean
+	public FlowProcessorSupport flowProcessorSupport() {
+		return new FlowProcessorSupport();
+	}
 
-    @Bean
-    public FlowContext flowContext(FlowProcessorSupport support) {
-        return new FlowContext(support);
-    }
+	/**
+	 * @param support shared thread-local state for active flows
+	 * @return the flow context exposed to application code
+	 */
+	@Bean
+	public FlowContext flowContext(FlowProcessorSupport support) {
+		return new FlowContext(support);
+	}
 
-    @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
-    @Bean
-    public FlowHandlerRegistry flowHandlerRegistry() {
-        return new FlowHandlerRegistry();
-    }
+	/** @return registry that maps event types to their registered sink handlers */
+	@Role(BeanDefinition.ROLE_INFRASTRUCTURE)
+	@Bean
+	public FlowHandlerRegistry flowHandlerRegistry() {
+		return new FlowHandlerRegistry();
+	}
 
-    @Bean(destroyMethod = "close")
-    public AsyncDispatchBus asyncDispatchBus(FlowHandlerRegistry registry) {
-        return new AsyncDispatchBus(registry);
-    }
+	/**
+	 * @param registry the handler registry sink events are dispatched to
+	 * @return the async dispatch bus; closed on context shutdown
+	 */
+	@Bean(destroyMethod = "close")
+	public AsyncDispatchBus asyncDispatchBus(FlowHandlerRegistry registry) {
+		return new AsyncDispatchBus(registry);
+	}
 
-    @Bean
-    public FlowAttributeValidator flowAttributeValidator() {
-        return new HibernateEntityDetector(HibernateEntityLogLevel.ERROR);
-    }
+	/** @return validator that detects Hibernate entity misuse on flow attributes */
+	@Bean
+	public FlowAttributeValidator flowAttributeValidator() {
+		return new HibernateEntityDetector(HibernateEntityLogLevel.ERROR);
+	}
 
-    @Bean
-    public FlowProcessor flowProcessor(
-            AsyncDispatchBus asyncDispatchBus,
-            FlowProcessorSupport support,
-            FlowAttributeValidator validator) {
-        return new DefaultFlowProcessor(asyncDispatchBus, support, validator);
-    }
+	/**
+	 * @param asyncDispatchBus bus used to fan-out events to registered sink handlers
+	 * @param support shared thread-local state for active flows
+	 * @param validator validates flow attributes before processing
+	 * @return the flow processor
+	 */
+	@Bean
+	public FlowProcessor flowProcessor(
+			AsyncDispatchBus asyncDispatchBus, FlowProcessorSupport support, FlowAttributeValidator validator) {
+		return new DefaultFlowProcessor(asyncDispatchBus, support, validator);
+	}
 
-    @Bean
-    public FlowAspect flowAspect(FlowProcessor processor, FlowProcessorSupport support) {
-        return new FlowAspect(processor, support);
-    }
+	/**
+	 * @param processor processes flow lifecycle events
+	 * @param support shared thread-local state for active flows
+	 * @return the AspectJ aspect that intercepts {@code @Flow}-annotated methods
+	 */
+	@Bean
+	public FlowAspect flowAspect(FlowProcessor processor, FlowProcessorSupport support) {
+		return new FlowAspect(processor, support);
+	}
 
-    @Bean
-    public static BeanPostProcessor flowSinkHandlerRegistrar(ObjectProvider<FlowHandlerRegistry> registryProvider) {
-        return new BeanPostProcessor() {
-            @Override
-            public Object postProcessAfterInitialization(Object bean, String beanName) {
-                if (bean instanceof FlowSinkHandler sink) {
-                    registryProvider.getObject().register(sink);
-                }
-                return bean;
-            }
-        };
-    }
+	/**
+	 * {@link BeanPostProcessor} that registers each {@link FlowSinkHandler} bean with the {@link FlowHandlerRegistry}
+	 * as it is initialised.
+	 *
+	 * @param registryProvider lazy provider for the {@link FlowHandlerRegistry}
+	 * @return the post-processor
+	 */
+	@Bean
+	public static BeanPostProcessor flowSinkHandlerRegistrar(ObjectProvider<FlowHandlerRegistry> registryProvider) {
+		return new BeanPostProcessor() {
+			@Override
+			public Object postProcessAfterInitialization(Object bean, String beanName) {
+				if (bean instanceof FlowSinkHandler sink) {
+					registryProvider.getObject().register(sink);
+				}
+				return bean;
+			}
+		};
+	}
 
-    @Bean
-    public static FlowSinkScanner flowSinkScanner(ObjectProvider<FlowHandlerRegistry> registryProvider) {
-        return new FlowSinkScanner(registryProvider);
-    }
+	/**
+	 * Scans the application context for {@link FlowSinkHandler} beans and registers them with the
+	 * {@link FlowHandlerRegistry}.
+	 *
+	 * @param registryProvider lazy provider for the {@link FlowHandlerRegistry}
+	 * @return the scanner
+	 */
+	@Bean
+	public static FlowSinkScanner flowSinkScanner(ObjectProvider<FlowHandlerRegistry> registryProvider) {
+		return new FlowSinkScanner(registryProvider);
+	}
 }

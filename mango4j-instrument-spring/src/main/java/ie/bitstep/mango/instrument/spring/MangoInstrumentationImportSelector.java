@@ -2,25 +2,32 @@ package ie.bitstep.mango.instrument.spring;
 
 import java.util.ArrayList;
 import java.util.List;
+
 import org.springframework.context.annotation.ImportSelector;
 import org.springframework.core.type.AnnotationMetadata;
 import org.springframework.util.ClassUtils;
 
+/**
+ * {@link ImportSelector} that conditionally imports mango4j instrumentation configurations based on which Spring APIs
+ * are present on the classpath (Servlet, Spring MVC, or WebFlux).
+ */
 public class MangoInstrumentationImportSelector implements ImportSelector {
-    @Override
-    public String[] selectImports(AnnotationMetadata importingClassMetadata) {
-        List<String> imports = new ArrayList<>();
-        imports.add(MangoInstrumentationConfiguration.class.getName());
+	@Override
+	public String[] selectImports(AnnotationMetadata importingClassMetadata) {
+		List<String> imports = new ArrayList<>();
+		imports.add(MangoInstrumentationConfiguration.class.getName());
 
-        if (ClassUtils.isPresent("jakarta.servlet.Filter", getClass().getClassLoader())) {
-            imports.add(MangoServletTraceConfiguration.class.getName());
-        }
-        if (ClassUtils.isPresent("org.springframework.web.servlet.HandlerInterceptor", getClass().getClassLoader())) {
-            imports.add(MangoServletFlowConfiguration.class.getName());
-        }
-        if (ClassUtils.isPresent("org.springframework.web.server.WebFilter", getClass().getClassLoader())) {
-            imports.add(MangoWebFluxTraceConfiguration.class.getName());
-        }
-        return imports.toArray(String[]::new);
-    }
+		if (ClassUtils.isPresent("jakarta.servlet.Filter", getClass().getClassLoader())) {
+			imports.add(MangoServletTraceConfiguration.class.getName());
+		}
+		if (ClassUtils.isPresent(
+				"org.springframework.web.servlet.HandlerInterceptor", getClass().getClassLoader())) {
+			imports.add(MangoServletFlowConfiguration.class.getName());
+		}
+		if (ClassUtils.isPresent(
+				"org.springframework.web.server.WebFilter", getClass().getClassLoader())) {
+			imports.add(MangoWebFluxTraceConfiguration.class.getName());
+		}
+		return imports.toArray(String[]::new);
+	}
 }

@@ -12,5 +12,5 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Repeatable(OnFlowScopes.class)
 public @interface OnFlowScope {
-    String value();
+	String value();
 }
