@@ -1,7 +1,7 @@
 package ie.bitstep.mango.instrument.spring;
 
 import java.util.Locale;
-import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +40,7 @@ public abstract class AbstractTraceContextFilter {
 	 * absent. Supports W3C {@code traceparent}/{@code tracestate}, B3 single-header, and B3
 	 * multi-header formats.
 	 */
-	protected void applyTraceHeaders(Function<String, String> headerLookup) {
+	protected void applyTraceHeaders(UnaryOperator<String> headerLookup) {
 		String traceparent = normalize(headerLookup.apply(TRACEPARENT));
 		String tracestate = normalize(headerLookup.apply(TRACESTATE));
 		String b3 = normalize(headerLookup.apply("b3"));
