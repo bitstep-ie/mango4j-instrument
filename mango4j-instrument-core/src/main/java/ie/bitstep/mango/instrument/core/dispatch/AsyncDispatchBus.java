@@ -92,21 +92,22 @@ public final class AsyncDispatchBus implements AutoCloseable {
 
 		private static Throwable unwrap(Throwable throwable) {
 			Throwable current = throwable;
-			while (current instanceof InvocationTargetException || current instanceof UndeclaredThrowableException) {
-				Throwable next;
-				if (current instanceof InvocationTargetException ite) {
-					next = ite.getTargetException();
-				} else if (current instanceof UndeclaredThrowableException ute) {
-					next = ute.getUndeclaredThrowable();
-				} else {
-					break;
-				}
-				if (next == null || next == current) {
-					break;
-				}
+			Throwable next = unwrapOne(current);
+			while (next != null && next != current) {
 				current = next;
+				next = unwrapOne(current);
 			}
 			return current;
+		}
+
+		private static Throwable unwrapOne(Throwable t) {
+			if (t instanceof InvocationTargetException ite) {
+				return ite.getTargetException();
+			}
+			if (t instanceof UndeclaredThrowableException ute) {
+				return ute.getUndeclaredThrowable();
+			}
+			return null;
 		}
 	}
 }

@@ -5,7 +5,6 @@ import java.lang.reflect.InaccessibleObjectException;
 import java.lang.reflect.Modifier;
 import java.time.temporal.TemporalAccessor;
 import java.util.Collections;
-import java.util.Date;
 import java.util.Deque;
 import java.util.IdentityHashMap;
 import java.util.LinkedList;
@@ -18,7 +17,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ie.bitstep.mango.instrument.validation.FlowAttributeValidator;
 
-@SuppressWarnings("java:S2143")
 public class HibernateEntityDetector implements FlowAttributeValidator {
 	private static final Logger log = LoggerFactory.getLogger(HibernateEntityDetector.class);
 	private static final Set<Class<?>> SIMPLE_TYPES = Set.of(
@@ -33,6 +31,8 @@ public class HibernateEntityDetector implements FlowAttributeValidator {
 	private static final Set<String> HIBERNATE_PROXY_MARKERS = Set.of("$$_javassist_", "_$$_jvst", "$HibernateProxy$");
 	private static final Set<String> ENTITY_ANNOTATIONS =
 			Set.of("org.hibernate.annotations.Entity", "jakarta.persistence.Entity", "javax.persistence.Entity");
+	private static final Set<String> LEGACY_DATE_CLASS_NAMES =
+			Set.of("java.util.Date", "java.sql.Date", "java.sql.Timestamp", "java.util.Calendar");
 
 	private final HibernateEntityLogLevel logLevel;
 
@@ -160,9 +160,20 @@ public class HibernateEntityDetector implements FlowAttributeValidator {
 				|| Number.class.isAssignableFrom(type)
 				|| Enum.class.isAssignableFrom(type)
 				|| UUID.class.isAssignableFrom(type)
-				|| Date.class.isAssignableFrom(type)
+				|| isLegacyDateType(type)
 				|| TemporalAccessor.class.isAssignableFrom(type)
 				|| Class.class.isAssignableFrom(type);
+	}
+
+	private static boolean isLegacyDateType(Class<?> type) {
+		Class<?> current = type;
+		while (current != null) {
+			if (LEGACY_DATE_CLASS_NAMES.contains(current.getName())) {
+				return true;
+			}
+			current = current.getSuperclass();
+		}
+		return false;
 	}
 
 	private static Iterable<Field> getAllFields(Class<?> type) {
