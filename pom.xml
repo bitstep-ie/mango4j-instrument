@@ -59,6 +59,7 @@
         <sonar.java.source>${maven.compiler.release}</sonar.java.source>
         <sonar.sourceEncoding>${project.build.sourceEncoding}</sonar.sourceEncoding>
         <sonar.exclusions>**/src/test/**</sonar.exclusions>
+        <sonar.test.exclusions>**/src/test/**</sonar.test.exclusions>
         <spotless-maven-plugin.version>2.43.0</spotless-maven-plugin.version>
         <spotless-palantir-maven-plugin.version>2.59.0</spotless-palantir-maven-plugin.version>
         <maven.deploy.plugin.version>3.1.4</maven.deploy.plugin.version>
