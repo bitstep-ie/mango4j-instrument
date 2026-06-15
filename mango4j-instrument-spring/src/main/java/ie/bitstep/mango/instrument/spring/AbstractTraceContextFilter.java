@@ -1,6 +1,7 @@
 package ie.bitstep.mango.instrument.spring;
 
 import java.util.Locale;
+import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,13 +23,83 @@ public abstract class AbstractTraceContextFilter {
 		this.support = support;
 	}
 
-	protected static void putIfPresent(String key, String value) {
+	/**
+	 * Snapshots the current MDC values for the five trace keys. Pass the returned array to
+	 * {@link #cleanupAndRestore(String[])} in a finally/doFinally block.
+	 */
+	protected String[] saveMdcState() {
+		return new String[] {
+			MDC.get(TRACE_ID), MDC.get(SPAN_ID), MDC.get(PARENT_SPAN_ID),
+			MDC.get(TRACESTATE), MDC.get(TRACEPARENT)
+		};
+	}
+
+	/**
+	 * Resolves trace headers via {@code headerLookup} and populates the MDC. The lookup function
+	 * receives a header name and returns the value (or {@code null}); blank values are treated as
+	 * absent. Supports W3C {@code traceparent}/{@code tracestate}, B3 single-header, and B3
+	 * multi-header formats.
+	 */
+	protected void applyTraceHeaders(Function<String, String> headerLookup) {
+		String traceparent = normalize(headerLookup.apply(TRACEPARENT));
+		String tracestate = normalize(headerLookup.apply(TRACESTATE));
+		String b3 = normalize(headerLookup.apply("b3"));
+		String traceId = null;
+		String spanId = null;
+		String parentSpanId = null;
+
+		if (traceparent != null) {
+			String[] parsed = parseTraceparent(traceparent);
+			if (parsed.length > 0) {
+				traceId = parsed[0];
+				spanId = parsed[1];
+			}
+		} else if (b3 != null) {
+			String[] parsed = parseB3Single(b3);
+			if (parsed.length > 0) {
+				traceId = parsed[0];
+				spanId = parsed[1];
+				parentSpanId = parsed[2];
+			}
+		} else {
+			traceId = normalize(headerLookup.apply("X-B3-TraceId"));
+			spanId = normalize(headerLookup.apply("X-B3-SpanId"));
+			parentSpanId = normalize(headerLookup.apply("X-B3-ParentSpanId"));
+		}
+
+		putIfPresent(TRACEPARENT, traceparent);
+		putIfPresent(TRACESTATE, tracestate);
+		putIfPresent(TRACE_ID, traceId);
+		putIfPresent(SPAN_ID, spanId);
+		putIfPresent(PARENT_SPAN_ID, parentSpanId);
+	}
+
+	/**
+	 * Cleans up thread-local flow state and restores the MDC to the snapshot returned by
+	 * {@link #saveMdcState()}.
+	 */
+	protected void cleanupAndRestore(String[] previous) {
+		if (support != null) {
+			support.cleanupThreadLocals();
+		}
+		restore(TRACE_ID, previous[0]);
+		restore(SPAN_ID, previous[1]);
+		restore(PARENT_SPAN_ID, previous[2]);
+		restore(TRACESTATE, previous[3]);
+		restore(TRACEPARENT, previous[4]);
+	}
+
+	private static String normalize(String value) {
+		return value == null || value.isBlank() ? null : value;
+	}
+
+	private static void putIfPresent(String key, String value) {
 		if (value != null) {
 			MDC.put(key, value);
 		}
 	}
 
-	protected static void restore(String key, String previous) {
+	private static void restore(String key, String previous) {
 		if (previous == null) {
 			MDC.remove(key);
 		} else {
