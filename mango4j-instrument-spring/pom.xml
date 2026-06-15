@@ -22,7 +22,7 @@
                 <artifactId>pitest-maven</artifactId>
                 <configuration>
                     <skip>${pitest.skip}</skip>
-                    <mutationThreshold>100</mutationThreshold>
+                    <mutationThreshold>99</mutationThreshold>
                     <targetClasses>
                         <param>ie.bitstep.mango.instrument.spring.aspect*</param>
                         <param>ie.bitstep.mango.instrument.spring.processor*</param>

@@ -58,7 +58,9 @@ public final class AsyncDispatchBus implements AutoCloseable {
 
 		private void offer(FlowEvent event) {
 			if (!queue.offer(event)) {
-				log.warn("Event dropped for sink {}: queue rejected offer", sink.getClass().getName());
+				log.warn(
+						"Event dropped for sink {}: queue rejected offer",
+						sink.getClass().getName());
 			}
 		}
 

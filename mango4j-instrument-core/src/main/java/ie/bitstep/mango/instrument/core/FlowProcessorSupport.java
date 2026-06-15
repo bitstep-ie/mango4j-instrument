@@ -78,7 +78,9 @@ public class FlowProcessorSupport {
 	public void logOrphanStep(String stepName, OrphanAlert.Level level) {
 		OrphanAlert.Level resolved = level == null ? OrphanAlert.Level.ERROR : level;
 		switch (resolved) {
-			case NONE -> { /* no logging configured for NONE level */ }
+			case NONE -> {
+				/* no logging configured for NONE level */
+			}
 			case TRACE -> log.trace(ORPHAN_MESSAGE, stepName);
 			case DEBUG -> log.debug(ORPHAN_MESSAGE, stepName);
 			case INFO -> log.info(ORPHAN_MESSAGE, stepName);

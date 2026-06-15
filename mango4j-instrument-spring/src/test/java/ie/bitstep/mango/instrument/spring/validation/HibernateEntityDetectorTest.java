@@ -329,6 +329,18 @@ class HibernateEntityDetectorTest {
 		assertThatCode(() -> getAllFields.invoke(null, ChildHolder.class)).doesNotThrowAnyException();
 	}
 
+	@Test
+	void is_legacy_date_type_recognises_direct_and_inherited_date_classes() throws Exception {
+		Method isLegacyDateType = HibernateEntityDetector.class.getDeclaredMethod("isLegacyDateType", Class.class);
+		isLegacyDateType.setAccessible(true);
+
+		assertThat(isLegacyDateType.invoke(null, java.util.Date.class)).isEqualTo(true);
+		assertThat(isLegacyDateType.invoke(null, java.sql.Timestamp.class)).isEqualTo(true);
+		// java.sql.Time extends java.util.Date but is not itself in the set — exercises hierarchy walk
+		assertThat(isLegacyDateType.invoke(null, java.sql.Time.class)).isEqualTo(true);
+		assertThat(isLegacyDateType.invoke(null, String.class)).isEqualTo(false);
+	}
+
 	private static Object readLogLevel(HibernateEntityDetector detector) {
 		try {
 			var field = HibernateEntityDetector.class.getDeclaredField("logLevel");

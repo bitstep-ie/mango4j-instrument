@@ -29,16 +29,14 @@ public abstract class AbstractTraceContextFilter {
 	 */
 	protected String[] saveMdcState() {
 		return new String[] {
-			MDC.get(TRACE_ID), MDC.get(SPAN_ID), MDC.get(PARENT_SPAN_ID),
-			MDC.get(TRACESTATE), MDC.get(TRACEPARENT)
+			MDC.get(TRACE_ID), MDC.get(SPAN_ID), MDC.get(PARENT_SPAN_ID), MDC.get(TRACESTATE), MDC.get(TRACEPARENT)
 		};
 	}
 
 	/**
-	 * Resolves trace headers via {@code headerLookup} and populates the MDC. The lookup function
-	 * receives a header name and returns the value (or {@code null}); blank values are treated as
-	 * absent. Supports W3C {@code traceparent}/{@code tracestate}, B3 single-header, and B3
-	 * multi-header formats.
+	 * Resolves trace headers via {@code headerLookup} and populates the MDC. The lookup function receives a header name
+	 * and returns the value (or {@code null}); blank values are treated as absent. Supports W3C
+	 * {@code traceparent}/{@code tracestate}, B3 single-header, and B3 multi-header formats.
 	 */
 	protected void applyTraceHeaders(UnaryOperator<String> headerLookup) {
 		String traceparent = normalize(headerLookup.apply(TRACEPARENT));
@@ -74,10 +72,7 @@ public abstract class AbstractTraceContextFilter {
 		putIfPresent(PARENT_SPAN_ID, parentSpanId);
 	}
 
-	/**
-	 * Cleans up thread-local flow state and restores the MDC to the snapshot returned by
-	 * {@link #saveMdcState()}.
-	 */
+	/** Cleans up thread-local flow state and restores the MDC to the snapshot returned by {@link #saveMdcState()}. */
 	protected void cleanupAndRestore(String[] previous) {
 		if (support != null) {
 			support.cleanupThreadLocals();

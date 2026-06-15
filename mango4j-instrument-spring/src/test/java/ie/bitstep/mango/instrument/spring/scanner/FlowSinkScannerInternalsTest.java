@@ -45,10 +45,8 @@ class FlowSinkScannerInternalsTest {
 	void helper_methods_cover_matching_and_coercion_edges() throws Exception {
 		Class<?> handlerClass = compiledHandlerClass();
 		Method scopeMatches = handlerClass.getDeclaredMethod("scopeMatches", List.class, String.class);
-		Method attributesPresent =
-				handlerClass.getDeclaredMethod("attributesPresent", FlowEvent.class, String[].class);
-		Method contextPresent =
-				handlerClass.getDeclaredMethod("contextPresent", FlowEvent.class, String[].class);
+		Method attributesPresent = handlerClass.getDeclaredMethod("attributesPresent", FlowEvent.class, String[].class);
+		Method contextPresent = handlerClass.getDeclaredMethod("contextPresent", FlowEvent.class, String[].class);
 		Method chooseThrowable =
 				FlowSinkScanner.class.getDeclaredMethod("chooseThrowable", FlowEvent.class, boolean.class);
 		Method coerce = FlowSinkScanner.class.getDeclaredMethod("coerce", Object.class, Class.class);
@@ -370,10 +368,8 @@ class FlowSinkScannerInternalsTest {
 	void helper_methods_cover_edge_cases_for_attributes_context_and_scope() throws Exception {
 		Class<?> handlerClass = compiledHandlerClass();
 		Method scopeMatches = handlerClass.getDeclaredMethod("scopeMatches", List.class, String.class);
-		Method attributesPresent =
-				handlerClass.getDeclaredMethod("attributesPresent", FlowEvent.class, String[].class);
-		Method contextPresent =
-				handlerClass.getDeclaredMethod("contextPresent", FlowEvent.class, String[].class);
+		Method attributesPresent = handlerClass.getDeclaredMethod("attributesPresent", FlowEvent.class, String[].class);
+		Method contextPresent = handlerClass.getDeclaredMethod("contextPresent", FlowEvent.class, String[].class);
 		scopeMatches.setAccessible(true);
 		attributesPresent.setAccessible(true);
 		contextPresent.setAccessible(true);
@@ -390,6 +386,9 @@ class FlowSinkScannerInternalsTest {
 		// scopeMatches: exact match (candidate.equals(trimmed) = true)
 		assertThat(scopeMatches.invoke(null, java.util.Arrays.asList("orders.checkout"), "orders.checkout"))
 				.isEqualTo(true);
+		// scopeMatches: list containing only null → false (null scope entry returns false)
+		assertThat(scopeMatches.invoke(null, java.util.Arrays.asList((String) null), "orders.checkout"))
+				.isEqualTo(false);
 
 		// attributesPresent: empty required array → true
 		assertThat(attributesPresent.invoke(null, event, (Object) new String[0]))

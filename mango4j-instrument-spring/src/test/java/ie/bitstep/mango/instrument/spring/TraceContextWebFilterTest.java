@@ -12,7 +12,6 @@ import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 import ie.bitstep.mango.instrument.core.FlowProcessorSupport;
-import ie.bitstep.mango.instrument.spring.AbstractTraceContextFilter;
 import ie.bitstep.mango.instrument.spring.webflux.TraceContextWebFilter;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -229,10 +228,10 @@ class TraceContextWebFilterTest {
 		parseTraceparent.setAccessible(true);
 		parseB3Single.setAccessible(true);
 
-		assertThat((String[]) parseTraceparent.invoke(null, new Object[] {null})).isEmpty();
+		assertThat((String[]) parseTraceparent.invoke(null, new Object[] {null}))
+				.isEmpty();
 		assertThat((String[]) parseB3Single.invoke(null, new Object[] {null})).isEmpty();
-		assertThat((String[]) parseTraceparent.invoke(
-						null, "00-12345678901234567890123456789012-short-span-01"))
+		assertThat((String[]) parseTraceparent.invoke(null, "00-12345678901234567890123456789012-short-span-01"))
 				.isEmpty();
 	}
 }

@@ -15,7 +15,6 @@ import org.slf4j.MDC;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import ie.bitstep.mango.instrument.core.FlowProcessorSupport;
-import ie.bitstep.mango.instrument.spring.AbstractTraceContextFilter;
 import ie.bitstep.mango.instrument.spring.web.TraceContextFilter;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -223,7 +222,8 @@ class TraceContextFilterTest {
 		parseTraceparent.setAccessible(true);
 		parseB3Single.setAccessible(true);
 
-		assertThat((String[]) parseTraceparent.invoke(null, new Object[] {null})).isEmpty();
+		assertThat((String[]) parseTraceparent.invoke(null, new Object[] {null}))
+				.isEmpty();
 		assertThat((String[]) parseB3Single.invoke(null, new Object[] {null})).isEmpty();
 	}
 
