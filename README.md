@@ -1,6 +1,12 @@
 # mango4j-instrument
 
-[![CI](https://github.com/bitstep-ie/mango4j-instrument/actions/workflows/ci.yml/badge.svg)](https://github.com/bitstep-ie/mango4j-instrument/actions/workflows/ci.yml)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=bitstep-ie_mango4j-instrument&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=bitstep-ie_mango4j-instrument)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=bitstep-ie_mango4j-instrument&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=bitstep-ie_mango4j-instrument)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=bitstep-ie_mango4j-instrument&metric=coverage)](https://sonarcloud.io/summary/new_code?id=bitstep-ie_mango4j-instrument)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=bitstep-ie_mango4j-instrument&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=bitstep-ie_mango4j-instrument)
+
+
+[![CI](https://github.com/bitstep-ie/mango4j-instrument/actions/workflows/packages.yml/badge.svg)](https://github.com/bitstep-ie/mango4j-instrument/actions/workflows/packages.yml)
 [![CodeQL](https://github.com/bitstep-ie/mango4j-instrument/actions/workflows/codeql.yml/badge.svg)](https://github.com/bitstep-ie/mango4j-instrument/actions/workflows/codeql.yml)
 [![Dependabot](https://github.com/bitstep-ie/mango4j-instrument/actions/workflows/dependabot/dependabot-updates/badge.svg)](https://github.com/bitstep-ie/mango4j-instrument/actions/workflows/dependabot/dependabot-updates)
 
