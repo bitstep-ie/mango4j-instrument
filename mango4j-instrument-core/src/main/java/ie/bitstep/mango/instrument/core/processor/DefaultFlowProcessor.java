@@ -39,10 +39,13 @@ public class DefaultFlowProcessor implements FlowProcessor {
 		if (support == null || !support.isEnabled()) {
 			return;
 		}
+		Map<String, Object> attrs = copy(extraAttrs);
+		Map<String, Object> ctx = copy(extraContext);
+		validate(attrs, ctx);
 		FlowEvent event =
 				FlowEvent.builder().name(name).timestamp(Instant.now()).build();
-		event.attributes().map().putAll(copy(extraAttrs));
-		event.eventContext().putAll(copy(extraContext));
+		event.attributes().map().putAll(attrs);
+		event.eventContext().putAll(ctx);
 		event.eventContext().put(LIFECYCLE, STARTED);
 		applyMeta(event, meta);
 		support.push(event);

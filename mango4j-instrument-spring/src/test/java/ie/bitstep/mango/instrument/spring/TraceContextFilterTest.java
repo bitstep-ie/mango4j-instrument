@@ -196,6 +196,21 @@ class TraceContextFilterTest {
 	}
 
 	@Test
+	void truncates_oversized_b3_trace_id_before_storing_in_mdc() throws ServletException, IOException {
+		TraceContextFilter filter = new TraceContextFilter(new FlowProcessorSupport());
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.addHeader("X-B3-TraceId", "t".repeat(600));
+		request.addHeader("X-B3-SpanId", "s".repeat(600));
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		AtomicReference<Map<String, String>> seen = new AtomicReference<>();
+
+		filter.doFilter(request, response, (req, res) -> seen.set(Map.copyOf(MDC.getCopyOfContextMap())));
+
+		assertThat(seen.get().get("traceId")).hasSize(AbstractTraceContextFilter.MAX_TRACE_ID_LENGTH);
+		assertThat(seen.get().get("spanId")).hasSize(AbstractTraceContextFilter.MAX_SPAN_ID_LENGTH);
+	}
+
+	@Test
 	void restores_previous_context_even_when_chain_throws() {
 		MDC.put("traceId", "previous");
 		TrackingSupport support = new TrackingSupport();

@@ -22,6 +22,11 @@ public abstract class AbstractTraceContextFilter {
 	 */
 	static final int MAX_TRACESTATE_LENGTH = 512;
 
+	static final int MAX_TRACE_HEADER_LENGTH = 512;
+	static final int MAX_TRACE_ID_LENGTH = 128;
+	static final int MAX_SPAN_ID_LENGTH = 64;
+	static final int MAX_PARENT_SPAN_ID_LENGTH = 64;
+
 	protected final FlowProcessorSupport support;
 
 	protected AbstractTraceContextFilter(FlowProcessorSupport support) {
@@ -44,9 +49,9 @@ public abstract class AbstractTraceContextFilter {
 	 * {@code traceparent}/{@code tracestate}, B3 single-header, and B3 multi-header formats.
 	 */
 	protected void applyTraceHeaders(UnaryOperator<String> headerLookup) {
-		String traceparent = normalize(headerLookup.apply(TRACEPARENT));
+		String traceparent = truncate(normalize(headerLookup.apply(TRACEPARENT)), MAX_TRACE_HEADER_LENGTH);
 		String tracestate = truncate(normalize(headerLookup.apply(TRACESTATE)), MAX_TRACESTATE_LENGTH);
-		String b3 = normalize(headerLookup.apply("b3"));
+		String b3 = truncate(normalize(headerLookup.apply("b3")), MAX_TRACE_HEADER_LENGTH);
 		String traceId = null;
 		String spanId = null;
 		String parentSpanId = null;
@@ -65,9 +70,9 @@ public abstract class AbstractTraceContextFilter {
 				parentSpanId = parsed[2];
 			}
 		} else {
-			traceId = normalize(headerLookup.apply("X-B3-TraceId"));
-			spanId = normalize(headerLookup.apply("X-B3-SpanId"));
-			parentSpanId = normalize(headerLookup.apply("X-B3-ParentSpanId"));
+			traceId = truncate(normalize(headerLookup.apply("X-B3-TraceId")), MAX_TRACE_ID_LENGTH);
+			spanId = truncate(normalize(headerLookup.apply("X-B3-SpanId")), MAX_SPAN_ID_LENGTH);
+			parentSpanId = truncate(normalize(headerLookup.apply("X-B3-ParentSpanId")), MAX_PARENT_SPAN_ID_LENGTH);
 		}
 
 		putIfPresent(TRACEPARENT, traceparent);

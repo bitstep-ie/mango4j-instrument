@@ -92,6 +92,23 @@ class FlowWebInterceptorTest {
 	}
 
 	@Test
+	void preHandle_truncates_oversized_http_metadata_before_storing_it() throws Exception {
+		String longUri = "/orders/" + "x".repeat(3000);
+		MockHttpServletRequest request = requestFor("GET", longUri);
+		HandlerMethod handler = handlerMethod("getOrders");
+
+		interceptor.preHandle(request, new MockHttpServletResponse(), handler);
+
+		@SuppressWarnings("unchecked")
+		Map<String, Object> http =
+				(Map<String, Object>) processor.started.get(0).context().get(FlowWebInterceptor.CTX_HTTP_KEY);
+		assertThat((String) http.get(FlowWebInterceptor.CTX_HTTP_URI))
+				.hasSize(FlowWebInterceptor.MAX_HTTP_VALUE_LENGTH);
+		assertThat((String) http.get(FlowWebInterceptor.CTX_HTTP_MAPPING))
+				.hasSize(FlowWebInterceptor.MAX_HTTP_VALUE_LENGTH);
+	}
+
+	@Test
 	void preHandle_falls_back_to_uri_when_mapping_attribute_absent() throws Exception {
 		MockHttpServletRequest request = requestFor("GET", "/fallback");
 		// no BEST_MATCHING_PATTERN_ATTRIBUTE set

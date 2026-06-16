@@ -18,8 +18,30 @@ import ie.bitstep.mango.instrument.model.OStatus;
 import ie.bitstep.mango.instrument.validation.FlowAttributeValidator;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class DefaultFlowProcessorTest {
+
+	@Test
+	void started_flow_validates_input_before_pushing_context() {
+		FlowHandlerRegistry registry = new FlowHandlerRegistry();
+		List<FlowEvent> seen = new CopyOnWriteArrayList<>();
+		registry.register(seen::add);
+		RecordingSupport support = new RecordingSupport();
+		FlowAttributeValidator validator = (key, value) -> {
+			if ("bad".equals(key)) {
+				throw new IllegalArgumentException("blocked");
+			}
+		};
+		DefaultFlowProcessor processor = new DefaultFlowProcessor(new AsyncDispatchBus(registry), support, validator);
+
+		assertThatThrownBy(() -> processor.onFlowStarted("demo.flow", Map.of("bad", "value"), Map.of(), null))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("attributes");
+
+		assertThat(seen).isEmpty();
+		assertThat(support.currentContext()).isNull();
+	}
 
 	@Test
 	void emits_started_and_completed_events_with_meta_and_cleans_up_context() {
@@ -100,7 +122,7 @@ class DefaultFlowProcessorTest {
 		awaitSize(seen, 2);
 		FlowEvent completed = seen.get(1);
 		assertThat(completed.eventContext()).containsEntry("tenant.id", "bitstep");
-		assertThat(validator.validatedMapNames).containsExactly("attributes", "context");
+		assertThat(validator.validatedMapNames).containsExactly("attributes", "context", "attributes", "context");
 		assertThat(support.startBatchCalls).isEqualTo(1);
 		assertThat(support.clearBatchCalls).isEqualTo(1);
 	}

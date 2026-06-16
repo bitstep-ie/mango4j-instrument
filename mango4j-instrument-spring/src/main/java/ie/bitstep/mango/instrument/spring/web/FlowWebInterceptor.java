@@ -48,6 +48,7 @@ public class FlowWebInterceptor implements HandlerInterceptor {
 	static final String CTX_HTTP_URI = "uri";
 	static final String CTX_HTTP_MAPPING = "mapping";
 	static final String CTX_HTTP_STATUS = "status";
+	static final int MAX_HTTP_VALUE_LENGTH = 2048;
 
 	private static final Logger log = LoggerFactory.getLogger(FlowWebInterceptor.class);
 
@@ -153,11 +154,17 @@ public class FlowWebInterceptor implements HandlerInterceptor {
 
 	private static Map<String, Object> buildHttpContext(HttpServletRequest request) {
 		String mapping = (String) request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
+		String requestUri = truncate(request.getRequestURI(), MAX_HTTP_VALUE_LENGTH);
+		String resolvedMapping = truncate(mapping != null ? mapping : request.getRequestURI(), MAX_HTTP_VALUE_LENGTH);
 		return Map.of(
 				CTX_HTTP_KEY,
 				Map.of(
 						CTX_HTTP_METHOD, request.getMethod(),
-						CTX_HTTP_URI, request.getRequestURI(),
-						CTX_HTTP_MAPPING, mapping != null ? mapping : request.getRequestURI()));
+						CTX_HTTP_URI, requestUri,
+						CTX_HTTP_MAPPING, resolvedMapping));
+	}
+
+	private static String truncate(String value, int maxLength) {
+		return value != null && value.length() > maxLength ? value.substring(0, maxLength) : value;
 	}
 }

@@ -202,6 +202,26 @@ class TraceContextWebFilterTest {
 	}
 
 	@Test
+	void truncates_oversized_b3_trace_id_before_storing_in_mdc() {
+		TraceContextWebFilter filter = new TraceContextWebFilter(new FlowProcessorSupport());
+		MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/test")
+				.header("X-B3-TraceId", "t".repeat(600))
+				.header("X-B3-SpanId", "s".repeat(600))
+				.build());
+		AtomicReference<Map<String, String>> seen = new AtomicReference<>();
+
+		WebFilterChain chain = webExchange -> {
+			seen.set(Map.copyOf(MDC.getCopyOfContextMap()));
+			return Mono.empty();
+		};
+
+		filter.filter(exchange, chain).block();
+
+		assertThat(seen.get().get("traceId")).hasSize(AbstractTraceContextFilter.MAX_TRACE_ID_LENGTH);
+		assertThat(seen.get().get("spanId")).hasSize(AbstractTraceContextFilter.MAX_SPAN_ID_LENGTH);
+	}
+
+	@Test
 	void restores_previous_context_when_chain_errors() {
 		MDC.put("traceId", "previous");
 		TrackingSupport support = new TrackingSupport();
