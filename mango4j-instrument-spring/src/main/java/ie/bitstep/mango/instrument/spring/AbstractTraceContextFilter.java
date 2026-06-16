@@ -17,6 +17,11 @@ public abstract class AbstractTraceContextFilter {
 	protected static final String TRACESTATE = "tracestate";
 	protected static final String TRACEPARENT = "traceparent";
 
+	/**
+	 * W3C recommends tracestate stay within 512 bytes; enforced here to stop a single header flooding every log line.
+	 */
+	static final int MAX_TRACESTATE_LENGTH = 512;
+
 	protected final FlowProcessorSupport support;
 
 	protected AbstractTraceContextFilter(FlowProcessorSupport support) {
@@ -40,7 +45,7 @@ public abstract class AbstractTraceContextFilter {
 	 */
 	protected void applyTraceHeaders(UnaryOperator<String> headerLookup) {
 		String traceparent = normalize(headerLookup.apply(TRACEPARENT));
-		String tracestate = normalize(headerLookup.apply(TRACESTATE));
+		String tracestate = truncate(normalize(headerLookup.apply(TRACESTATE)), MAX_TRACESTATE_LENGTH);
 		String b3 = normalize(headerLookup.apply("b3"));
 		String traceId = null;
 		String spanId = null;
@@ -84,8 +89,20 @@ public abstract class AbstractTraceContextFilter {
 		restore(TRACEPARENT, previous[4]);
 	}
 
+	/**
+	 * Blank-checks {@code value} and strips control characters (including CR/LF) so an attacker-supplied header cannot
+	 * forge log lines or inject terminal escape sequences once the value lands in the MDC.
+	 */
 	private static String normalize(String value) {
-		return value == null || value.isBlank() ? null : value;
+		if (value == null) {
+			return null;
+		}
+		String sanitized = value.replaceAll("\\p{Cntrl}", "");
+		return sanitized.isBlank() ? null : sanitized;
+	}
+
+	private static String truncate(String value, int maxLength) {
+		return value != null && value.length() > maxLength ? value.substring(0, maxLength) : value;
 	}
 
 	private static void putIfPresent(String key, String value) {

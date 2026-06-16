@@ -216,6 +216,59 @@ class TraceContextFilterTest {
 	}
 
 	@Test
+	void strips_control_characters_from_header_values_before_storing_in_mdc() throws ServletException, IOException {
+		TraceContextFilter filter = new TraceContextFilter(new FlowProcessorSupport());
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.addHeader("X-B3-TraceId", "trace\r\nINJECTED: evil-123");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		AtomicReference<Map<String, String>> seen = new AtomicReference<>();
+
+		filter.doFilter(request, response, (req, res) -> seen.set(Map.copyOf(MDC.getCopyOfContextMap())));
+
+		assertThat(seen.get().get("traceId")).isEqualTo("traceINJECTED: evil-123");
+	}
+
+	@Test
+	void treats_header_consisting_only_of_control_characters_as_absent() throws ServletException, IOException {
+		MDC.put("traceId", "previous-trace");
+		TraceContextFilter filter = new TraceContextFilter(new FlowProcessorSupport());
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.addHeader("X-B3-TraceId", "\r\n\t");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		AtomicReference<Map<String, String>> seen = new AtomicReference<>();
+
+		filter.doFilter(request, response, (req, res) -> seen.set(Map.copyOf(MDC.getCopyOfContextMap())));
+
+		assertThat(seen.get()).containsEntry("traceId", "previous-trace");
+	}
+
+	@Test
+	void truncates_oversized_tracestate_header_to_max_length() throws ServletException, IOException {
+		TraceContextFilter filter = new TraceContextFilter(new FlowProcessorSupport());
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.addHeader("tracestate", "x".repeat(600));
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		AtomicReference<Map<String, String>> seen = new AtomicReference<>();
+
+		filter.doFilter(request, response, (req, res) -> seen.set(Map.copyOf(MDC.getCopyOfContextMap())));
+
+		assertThat(seen.get().get("tracestate")).hasSize(AbstractTraceContextFilter.MAX_TRACESTATE_LENGTH);
+	}
+
+	@Test
+	void does_not_truncate_tracestate_header_at_exactly_max_length() throws ServletException, IOException {
+		TraceContextFilter filter = new TraceContextFilter(new FlowProcessorSupport());
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.addHeader("tracestate", "x".repeat(AbstractTraceContextFilter.MAX_TRACESTATE_LENGTH));
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		AtomicReference<Map<String, String>> seen = new AtomicReference<>();
+
+		filter.doFilter(request, response, (req, res) -> seen.set(Map.copyOf(MDC.getCopyOfContextMap())));
+
+		assertThat(seen.get().get("tracestate")).hasSize(AbstractTraceContextFilter.MAX_TRACESTATE_LENGTH);
+	}
+
+	@Test
 	void parse_helpers_return_empty_array_for_unparseable_inputs() throws Exception {
 		Method parseTraceparent = AbstractTraceContextFilter.class.getDeclaredMethod("parseTraceparent", String.class);
 		Method parseB3Single = AbstractTraceContextFilter.class.getDeclaredMethod("parseB3Single", String.class);

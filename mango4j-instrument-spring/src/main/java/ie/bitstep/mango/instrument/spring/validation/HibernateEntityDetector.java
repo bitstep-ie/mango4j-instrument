@@ -34,6 +34,12 @@ public class HibernateEntityDetector implements FlowAttributeValidator {
 	private static final Set<String> LEGACY_DATE_CLASS_NAMES =
 			Set.of("java.util.Date", "java.sql.Date", "java.sql.Timestamp", "java.util.Calendar");
 
+	/** Bounds recursion so a deeply nested attacker-influenced object graph cannot trigger a StackOverflowError. */
+	static final int MAX_DEPTH = 50;
+
+	/** Bounds per-collection scanning so a very large attribute value cannot turn this check into a CPU sink. */
+	static final int MAX_ELEMENTS_PER_COLLECTION = 1000;
+
 	private final HibernateEntityLogLevel logLevel;
 
 	public HibernateEntityDetector(HibernateEntityLogLevel logLevel) {
@@ -49,11 +55,16 @@ public class HibernateEntityDetector implements FlowAttributeValidator {
 		if (value == null) {
 			return;
 		}
-		detect(key, key, value, new IdentityHashMap<>(), level == null ? HibernateEntityLogLevel.ERROR : level);
+		detect(key, key, value, new IdentityHashMap<>(), level == null ? HibernateEntityLogLevel.ERROR : level, 0);
 	}
 
 	private static void detect(
-			String root, String path, Object value, Map<Object, Boolean> visited, HibernateEntityLogLevel level) {
+			String root,
+			String path,
+			Object value,
+			Map<Object, Boolean> visited,
+			HibernateEntityLogLevel level,
+			int depth) {
 		if (value == null || visited.containsKey(value)) {
 			return;
 		}
@@ -68,33 +79,44 @@ public class HibernateEntityDetector implements FlowAttributeValidator {
 		if (isTerminal(type)) {
 			return;
 		}
+		if (depth >= MAX_DEPTH) {
+			log.debug("Stopped scanning '{}' at path '{}': max depth {} reached", root, path, MAX_DEPTH);
+			return;
+		}
 
 		visited.put(value, Boolean.TRUE);
 
 		if (value instanceof Map<?, ?> map) {
+			int count = 0;
 			for (Map.Entry<?, ?> entry : map.entrySet()) {
-				detect(root, path + "[" + entry.getKey() + "]", entry.getValue(), visited, level);
+				if (count++ >= MAX_ELEMENTS_PER_COLLECTION) {
+					break;
+				}
+				detect(root, path + "[" + entry.getKey() + "]", entry.getValue(), visited, level, depth + 1);
 			}
 			return;
 		}
 		if (value instanceof Iterable<?> iterable) {
 			int index = 0;
 			for (Object entry : iterable) {
-				detect(root, path + "[" + index + "]", entry, visited, level);
+				if (index >= MAX_ELEMENTS_PER_COLLECTION) {
+					break;
+				}
+				detect(root, path + "[" + index + "]", entry, visited, level, depth + 1);
 				index++;
 			}
 			return;
 		}
 		if (type.isArray()) {
-			detectArray(root, path, value, visited, level);
+			detectArray(root, path, value, visited, level, depth);
 			return;
 		}
 		if (value instanceof Optional<?> optional) {
-			optional.ifPresent(nested -> detect(root, path + ".value", nested, visited, level));
+			optional.ifPresent(nested -> detect(root, path + ".value", nested, visited, level, depth + 1));
 			return;
 		}
 
-		detectFields(root, path, value, type, visited, level);
+		detectFields(root, path, value, type, visited, level, depth);
 	}
 
 	private static void reportEntity(String message, HibernateEntityLogLevel level) {
@@ -109,10 +131,21 @@ public class HibernateEntityDetector implements FlowAttributeValidator {
 	}
 
 	private static void detectArray(
-			String root, String path, Object value, Map<Object, Boolean> visited, HibernateEntityLogLevel level) {
-		int length = java.lang.reflect.Array.getLength(value);
+			String root,
+			String path,
+			Object value,
+			Map<Object, Boolean> visited,
+			HibernateEntityLogLevel level,
+			int depth) {
+		int length = Math.min(java.lang.reflect.Array.getLength(value), MAX_ELEMENTS_PER_COLLECTION);
 		for (int index = 0; index < length; index++) {
-			detect(root, path + "[" + index + "]", java.lang.reflect.Array.get(value, index), visited, level);
+			detect(
+					root,
+					path + "[" + index + "]",
+					java.lang.reflect.Array.get(value, index),
+					visited,
+					level,
+					depth + 1);
 		}
 	}
 
@@ -123,7 +156,8 @@ public class HibernateEntityDetector implements FlowAttributeValidator {
 			Object value,
 			Class<?> type,
 			Map<Object, Boolean> visited,
-			HibernateEntityLogLevel level) {
+			HibernateEntityLogLevel level,
+			int depth) {
 		for (Field field : getAllFields(type)) {
 			if (Modifier.isStatic(field.getModifiers()) || Modifier.isTransient(field.getModifiers())) {
 				continue;
@@ -132,7 +166,7 @@ public class HibernateEntityDetector implements FlowAttributeValidator {
 				if (!field.canAccess(value)) {
 					field.setAccessible(true);
 				}
-				detect(root, path + "." + field.getName(), field.get(value), visited, level);
+				detect(root, path + "." + field.getName(), field.get(value), visited, level, depth + 1);
 			} catch (IllegalAccessException | InaccessibleObjectException e) {
 				log.debug("Cannot access field {} on {}: {}", field.getName(), type.getName(), e.getMessage());
 			}

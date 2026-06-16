@@ -5,12 +5,19 @@ import java.util.Objects;
 
 import ie.bitstep.mango.instrument.core.FlowProcessorSupport;
 import ie.bitstep.mango.instrument.model.FlowEvent;
+import ie.bitstep.mango.instrument.validation.FlowAttributeValidator;
 
 public class FlowContext {
 	private final FlowProcessorSupport support;
+	private final FlowAttributeValidator validator;
 
 	public FlowContext(FlowProcessorSupport support) {
+		this(support, null);
+	}
+
+	public FlowContext(FlowProcessorSupport support, FlowAttributeValidator validator) {
 		this.support = Objects.requireNonNull(support, "support");
+		this.validator = validator;
 	}
 
 	public <T> T put(String key, T value) {
@@ -27,6 +34,7 @@ public class FlowContext {
 		}
 		FlowEvent context = support.currentContext();
 		if (context != null) {
+			validate(key, value);
 			context.attributes().put(key, value);
 		}
 		return value;
@@ -42,6 +50,7 @@ public class FlowContext {
 		}
 		map.forEach((key, value) -> {
 			if (key != null && !key.isBlank()) {
+				validate(key, value);
 				context.attributes().put(key, value);
 			}
 		});
@@ -53,6 +62,7 @@ public class FlowContext {
 		}
 		FlowEvent context = support.currentContext();
 		if (context != null) {
+			validate(key, value);
 			context.eventContext().put(key, value);
 		}
 		return value;
@@ -68,8 +78,15 @@ public class FlowContext {
 		}
 		map.forEach((key, value) -> {
 			if (key != null && !key.isBlank()) {
+				validate(key, value);
 				context.eventContext().put(key, value);
 			}
 		});
+	}
+
+	private void validate(String key, Object value) {
+		if (validator != null) {
+			validator.validate(key, value);
+		}
 	}
 }

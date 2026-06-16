@@ -1,14 +1,27 @@
 package ie.bitstep.mango.instrument.context;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import ie.bitstep.mango.instrument.core.FlowProcessorSupport;
 import ie.bitstep.mango.instrument.model.FlowEvent;
+import ie.bitstep.mango.instrument.validation.FlowAttributeValidator;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class FlowContextTest {
+
+	private static final class RecordingValidator implements FlowAttributeValidator {
+		private final List<String> validatedKeys = new ArrayList<>();
+
+		@Override
+		public void validate(String key, Object value) {
+			validatedKeys.add(key);
+		}
+	}
 
 	@Test
 	void writes_attributes_and_context_to_current_flow() {
@@ -145,5 +158,72 @@ class FlowContextTest {
 		assertThat(event.attributes().map()).isEmpty();
 		assertThat(event.eventContext()).isEmpty();
 		assertThat(support.currentContext()).isSameAs(event);
+	}
+
+	@Test
+	void routes_single_value_writes_through_the_validator_when_a_flow_is_active() {
+		FlowProcessorSupport support = new FlowProcessorSupport();
+		RecordingValidator validator = new RecordingValidator();
+		FlowContext context = new FlowContext(support, validator);
+		FlowEvent event = FlowEvent.builder().name("demo.flow").build();
+		support.push(event);
+
+		context.putAttr("user.id", "alice");
+		context.putContext("cart.size", 3);
+
+		assertThat(validator.validatedKeys).containsExactly("user.id", "cart.size");
+	}
+
+	@Test
+	void routes_bulk_value_writes_through_the_validator_when_a_flow_is_active() {
+		FlowProcessorSupport support = new FlowProcessorSupport();
+		RecordingValidator validator = new RecordingValidator();
+		FlowContext context = new FlowContext(support, validator);
+		FlowEvent event = FlowEvent.builder().name("demo.flow").build();
+		support.push(event);
+
+		context.putAllAttrs(Map.of("tenant.id", "bitstep"));
+		context.putAllContext(Map.of("currency", "EUR"));
+
+		assertThat(validator.validatedKeys).containsExactlyInAnyOrder("tenant.id", "currency");
+	}
+
+	@Test
+	void propagates_validator_rejection_instead_of_storing_the_value() {
+		FlowProcessorSupport support = new FlowProcessorSupport();
+		FlowAttributeValidator rejecting = (key, value) -> {
+			throw new IllegalArgumentException("rejected: " + key);
+		};
+		FlowContext context = new FlowContext(support, rejecting);
+		FlowEvent event = FlowEvent.builder().name("demo.flow").build();
+		support.push(event);
+
+		assertThatThrownBy(() -> context.putAttr("user.id", "alice"))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("user.id");
+		assertThat(event.attributes().map()).isEmpty();
+	}
+
+	@Test
+	void does_not_invoke_the_validator_when_no_flow_is_active() {
+		FlowProcessorSupport support = new FlowProcessorSupport();
+		RecordingValidator validator = new RecordingValidator();
+		FlowContext context = new FlowContext(support, validator);
+
+		context.putAttr("user.id", "alice");
+		context.putAllAttrs(Map.of("tenant.id", "bitstep"));
+
+		assertThat(validator.validatedKeys).isEmpty();
+	}
+
+	@Test
+	void single_argument_constructor_skips_validation() {
+		FlowProcessorSupport support = new FlowProcessorSupport();
+		FlowContext context = new FlowContext(support);
+		FlowEvent event = FlowEvent.builder().name("demo.flow").build();
+		support.push(event);
+
+		assertThat(context.putAttr("user.id", "alice")).isEqualTo("alice");
+		assertThat(event.attributes().map()).containsEntry("user.id", "alice");
 	}
 }

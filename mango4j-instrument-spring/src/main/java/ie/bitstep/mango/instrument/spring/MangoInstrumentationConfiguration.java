@@ -32,11 +32,12 @@ public class MangoInstrumentationConfiguration {
 
 	/**
 	 * @param support shared thread-local state for active flows
+	 * @param validator validates attributes/context values pushed via the programmatic API
 	 * @return the flow context exposed to application code
 	 */
 	@Bean
-	public FlowContext flowContext(FlowProcessorSupport support) {
-		return new FlowContext(support);
+	public FlowContext flowContext(FlowProcessorSupport support, FlowAttributeValidator validator) {
+		return new FlowContext(support, validator);
 	}
 
 	/** @return registry that maps event types to their registered sink handlers */

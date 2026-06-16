@@ -341,6 +341,212 @@ class HibernateEntityDetectorTest {
 		assertThat(isLegacyDateType.invoke(null, String.class)).isEqualTo(false);
 	}
 
+	@Test
+	void logs_debug_message_when_max_depth_is_reached() {
+		Logger logger = (Logger) LoggerFactory.getLogger(HibernateEntityDetector.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		try {
+			Object deeplyNested = nestedMaps(HibernateEntityDetector.MAX_DEPTH + 5, "leaf-value");
+
+			HibernateEntityDetector.checkNotHibernateEntity("payload", deeplyNested, HibernateEntityLogLevel.ERROR);
+
+			assertThat(appender.list)
+					.anyMatch(event -> event.getLevel() == Level.DEBUG
+							&& event.getFormattedMessage().contains("max depth"));
+		} finally {
+			logger.detachAppender(appender);
+		}
+	}
+
+	@Test
+	void map_recursion_increases_depth_so_entities_beyond_max_depth_are_unreachable() {
+		Object deeplyNested = nestedMaps(HibernateEntityDetector.MAX_DEPTH + 10, new EntityType());
+
+		assertThatCode(() -> HibernateEntityDetector.checkNotHibernateEntity(
+						"payload", deeplyNested, HibernateEntityLogLevel.ERROR))
+				.doesNotThrowAnyException();
+	}
+
+	@Test
+	void list_recursion_increases_depth_so_entities_beyond_max_depth_are_unreachable() {
+		Object deeplyNested = nestedLists(HibernateEntityDetector.MAX_DEPTH + 10, new EntityType());
+
+		assertThatCode(() -> HibernateEntityDetector.checkNotHibernateEntity(
+						"payload", deeplyNested, HibernateEntityLogLevel.ERROR))
+				.doesNotThrowAnyException();
+	}
+
+	@Test
+	void array_recursion_increases_depth_so_entities_beyond_max_depth_are_unreachable() {
+		Object deeplyNested = nestedArrays(HibernateEntityDetector.MAX_DEPTH + 10, new EntityType());
+
+		assertThatCode(() -> HibernateEntityDetector.checkNotHibernateEntity(
+						"payload", deeplyNested, HibernateEntityLogLevel.ERROR))
+				.doesNotThrowAnyException();
+	}
+
+	@Test
+	void optional_recursion_increases_depth_so_entities_beyond_max_depth_are_unreachable() {
+		Object deeplyNested = nestedOptionals(HibernateEntityDetector.MAX_DEPTH + 10, new EntityType());
+
+		assertThatCode(() -> HibernateEntityDetector.checkNotHibernateEntity(
+						"payload", deeplyNested, HibernateEntityLogLevel.ERROR))
+				.doesNotThrowAnyException();
+	}
+
+	@Test
+	void field_recursion_increases_depth_so_entities_beyond_max_depth_are_unreachable() {
+		Object deeplyNested = nestedWrappers(HibernateEntityDetector.MAX_DEPTH + 10, new EntityType());
+
+		assertThatCode(() -> HibernateEntityDetector.checkNotHibernateEntity(
+						"payload", deeplyNested, HibernateEntityLogLevel.ERROR))
+				.doesNotThrowAnyException();
+	}
+
+	private static Object nestedMaps(int depth, Object leaf) {
+		Object current = leaf;
+		for (int i = 0; i < depth; i++) {
+			current = Map.of("k", current);
+		}
+		return current;
+	}
+
+	private static Object nestedLists(int depth, Object leaf) {
+		Object current = leaf;
+		for (int i = 0; i < depth; i++) {
+			current = List.of(current);
+		}
+		return current;
+	}
+
+	private static Object nestedArrays(int depth, Object leaf) {
+		Object current = leaf;
+		for (int i = 0; i < depth; i++) {
+			current = new Object[] {current};
+		}
+		return current;
+	}
+
+	private static Object nestedOptionals(int depth, Object leaf) {
+		Object current = leaf;
+		for (int i = 0; i < depth; i++) {
+			current = Optional.of(current);
+		}
+		return current;
+	}
+
+	private static Object nestedWrappers(int depth, Object leaf) {
+		Object current = leaf;
+		for (int i = 0; i < depth; i++) {
+			current = new Wrapper(current);
+		}
+		return current;
+	}
+
+	@Test
+	void detect_stops_recursing_once_max_depth_is_reached() throws Exception {
+		Method detect = HibernateEntityDetector.class.getDeclaredMethod(
+				"detect",
+				String.class,
+				String.class,
+				Object.class,
+				Map.class,
+				HibernateEntityLogLevel.class,
+				int.class);
+		detect.setAccessible(true);
+		Wrapper atMaxDepth = new Wrapper(new EntityType());
+		Map<Object, Boolean> visited = new java.util.IdentityHashMap<>();
+
+		detect.invoke(
+				null,
+				"root",
+				"root",
+				atMaxDepth,
+				visited,
+				HibernateEntityLogLevel.ERROR,
+				HibernateEntityDetector.MAX_DEPTH);
+
+		// the depth gate fires before the wrapper is even marked visited, so its entity field is never reached
+		assertThat(visited).isEmpty();
+	}
+
+	@Test
+	void detect_still_descends_one_level_below_max_depth() throws Exception {
+		Method detect = HibernateEntityDetector.class.getDeclaredMethod(
+				"detect",
+				String.class,
+				String.class,
+				Object.class,
+				Map.class,
+				HibernateEntityLogLevel.class,
+				int.class);
+		detect.setAccessible(true);
+		Wrapper belowMaxDepth = new Wrapper(new EntityType());
+		Map<Object, Boolean> visited = new java.util.IdentityHashMap<>();
+
+		assertThatThrownBy(() -> detect.invoke(
+						null,
+						"root",
+						"root",
+						belowMaxDepth,
+						visited,
+						HibernateEntityLogLevel.ERROR,
+						HibernateEntityDetector.MAX_DEPTH - 1))
+				.hasCauseInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
+	void caps_the_number_of_iterable_elements_scanned() {
+		List<Object> items = new java.util.ArrayList<>();
+		for (int i = 0; i < HibernateEntityDetector.MAX_ELEMENTS_PER_COLLECTION; i++) {
+			items.add("ok");
+		}
+		items.add(new EntityType()); // sits just past the cap, so it must never be reached
+
+		assertThatCode(() -> HibernateEntityDetector.checkNotHibernateEntity(
+						"payload", items, HibernateEntityLogLevel.ERROR))
+				.doesNotThrowAnyException();
+	}
+
+	@Test
+	void still_scans_the_last_iterable_element_within_the_cap() {
+		List<Object> items = new java.util.ArrayList<>();
+		for (int i = 0; i < HibernateEntityDetector.MAX_ELEMENTS_PER_COLLECTION - 1; i++) {
+			items.add("ok");
+		}
+		items.add(new EntityType()); // last element still within the cap boundary
+
+		assertThatThrownBy(() -> HibernateEntityDetector.checkNotHibernateEntity(
+						"payload", items, HibernateEntityLogLevel.ERROR))
+				.isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
+	void caps_the_number_of_map_entries_scanned() {
+		Map<String, Object> entries = new java.util.LinkedHashMap<>();
+		for (int i = 0; i < HibernateEntityDetector.MAX_ELEMENTS_PER_COLLECTION; i++) {
+			entries.put("key" + i, "ok");
+		}
+		entries.put("overflow", new EntityType()); // sits just past the cap, so it must never be reached
+
+		assertThatCode(() -> HibernateEntityDetector.checkNotHibernateEntity(
+						"payload", entries, HibernateEntityLogLevel.ERROR))
+				.doesNotThrowAnyException();
+	}
+
+	@Test
+	void caps_the_number_of_array_elements_scanned() {
+		Object[] items = new Object[HibernateEntityDetector.MAX_ELEMENTS_PER_COLLECTION + 1];
+		java.util.Arrays.fill(items, "ok");
+		items[HibernateEntityDetector.MAX_ELEMENTS_PER_COLLECTION] = new EntityType(); // just past the cap
+
+		assertThatCode(() -> HibernateEntityDetector.checkNotHibernateEntity(
+						"payload", items, HibernateEntityLogLevel.ERROR))
+				.doesNotThrowAnyException();
+	}
+
 	private static Object readLogLevel(HibernateEntityDetector detector) {
 		try {
 			var field = HibernateEntityDetector.class.getDeclaredField("logLevel");
