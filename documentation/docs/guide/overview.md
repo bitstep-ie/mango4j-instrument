@@ -24,6 +24,7 @@ At runtime the Spring module:
 
 - intercepts `@Flow` and `@Step` methods with AOP
 - constructs `FlowEvent` objects in the core module
+- records nested `StepEvent` entries inside the active flow
 - dispatches them to compiled sink handlers
 - tracks the current flow context in thread-local support
 - optionally imports trace headers into the current context

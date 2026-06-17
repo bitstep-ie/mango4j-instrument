@@ -11,6 +11,7 @@ Use this in application or library code that should remain independent of the Sp
 Contains:
 
 - `FlowEvent`
+- `StepEvent`
 - processor support
 - dispatch infrastructure
 - validation

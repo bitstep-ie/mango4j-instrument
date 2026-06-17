@@ -19,7 +19,7 @@ import ie.bitstep.mango.instrument.core.FlowProcessorSupport;
 import ie.bitstep.mango.instrument.core.processor.FlowMeta;
 import ie.bitstep.mango.instrument.core.processor.FlowProcessor;
 import ie.bitstep.mango.instrument.model.FlowEvent;
-import ie.bitstep.mango.instrument.model.OEvent;
+import ie.bitstep.mango.instrument.model.StepEvent;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -96,7 +96,7 @@ class FlowAspectUnitTest {
 		assertThat(active.attributes().map()).containsEntry("sku", "SKU-1");
 		assertThat(active.eventContext()).containsEntry("country", "ie");
 		assertThat(active.events()).hasSize(1);
-		OEvent event = active.events().get(0);
+		StepEvent event = active.events().get(0);
 		assertThat(event.kind()).isEqualTo("INTERNAL");
 		assertThat(event.attributes().map())
 				.containsEntry("sku", "SKU-1")

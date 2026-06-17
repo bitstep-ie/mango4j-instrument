@@ -1,6 +1,6 @@
 package ie.bitstep.mango.instrument.model;
 
-public class OEvent {
+public class StepEvent {
 	private final String name;
 	private final long timeUnixNano;
 	private long endTimeUnixNano;
@@ -8,7 +8,7 @@ public class OEvent {
 	private final OAttributes attributes;
 	private final String kind;
 
-	public OEvent(String name, long timeUnixNano, OAttributes attributes, String kind) {
+	public StepEvent(String name, long timeUnixNano, OAttributes attributes, String kind) {
 		this.name = name;
 		this.timeUnixNano = timeUnixNano;
 		this.attributes = attributes == null ? new OAttributes() : attributes;
@@ -47,8 +47,8 @@ public class OEvent {
 		return kind;
 	}
 
-	public OEvent snapshot() {
-		OEvent copy = new OEvent(name, timeUnixNano, new OAttributes(attributes.map()), kind);
+	public StepEvent snapshot() {
+		StepEvent copy = new StepEvent(name, timeUnixNano, new OAttributes(attributes.map()), kind);
 		copy.setEndTimeUnixNano(endTimeUnixNano);
 		copy.setElapsedNanos(elapsedNanos);
 		return copy;

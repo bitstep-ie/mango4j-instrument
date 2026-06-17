@@ -16,7 +16,7 @@ public class FlowEvent {
 	private Instant endTimestamp;
 	private final OAttributes attributes;
 	private final Map<String, Object> eventContext;
-	private final List<OEvent> events;
+	private final List<StepEvent> events;
 	private final Deque<OpenStep> openSteps;
 	private SpanKind kind = SpanKind.INTERNAL;
 	private OStatus status;
@@ -63,7 +63,7 @@ public class FlowEvent {
 		return eventContext();
 	}
 
-	public List<OEvent> events() {
+	public List<StepEvent> events() {
 		return List.copyOf(events);
 	}
 
@@ -123,7 +123,7 @@ public class FlowEvent {
 
 	public void beginStepEvent(
 			String name, long startEpochNanos, long startNanoTime, OAttributes initialAttributes, String kindValue) {
-		OEvent event = new OEvent(name, startEpochNanos, initialAttributes, kindValue);
+		StepEvent event = new StepEvent(name, startEpochNanos, initialAttributes, kindValue);
 		events.add(event);
 		openSteps.addLast(new OpenStep(event, startNanoTime));
 	}
@@ -146,7 +146,7 @@ public class FlowEvent {
 		copy.endTimestamp = endTimestamp;
 		copy.attributes().map().putAll(attributes.map());
 		copy.eventContext().putAll(eventContext);
-		for (OEvent event : events) {
+		for (StepEvent event : events) {
 			copy.events.add(event.snapshot());
 		}
 		copy.kind(kind);
@@ -188,5 +188,5 @@ public class FlowEvent {
 		}
 	}
 
-	private record OpenStep(OEvent event, long startNanoTime) {}
+	private record OpenStep(StepEvent event, long startNanoTime) {}
 }

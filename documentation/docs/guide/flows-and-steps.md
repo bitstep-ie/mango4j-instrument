@@ -104,3 +104,5 @@ The emitted `FlowEvent` stores:
 - nested step events
 - trace identifiers when present
 - status and throwable details for completion or failure
+
+Each nested step is represented as a `StepEvent` inside `FlowEvent.events()`.

@@ -47,6 +47,7 @@ nav:
   - Reference:
       - Modules: reference/modules.md
       - Annotations: reference/annotations.md
+      - Event Model: reference/event-model.md
       - Lifecycle Semantics: reference/lifecycle-semantics.md
       - Testing And Mutation Coverage: reference/testing.md
 

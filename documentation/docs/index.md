@@ -15,6 +15,7 @@
 - [Flows And Steps](guide/flows-and-steps.md)
 - [Flow Sinks](guide/flow-sinks.md)
 - [Web Tracing](guide/web-tracing.md)
+- [Event Model](reference/event-model.md)
 - [Lifecycle Semantics](reference/lifecycle-semantics.md)
 
 ## Modules

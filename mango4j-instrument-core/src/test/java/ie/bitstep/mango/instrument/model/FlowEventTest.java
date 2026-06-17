@@ -18,7 +18,7 @@ class FlowEventTest {
 		event.endStepEvent(20L, 175L, Map.of("status", "ok"));
 
 		assertThat(event.events()).hasSize(1);
-		OEvent step = event.events().get(0);
+		StepEvent step = event.events().get(0);
 		assertThat(step.name()).isEqualTo("demo.step");
 		assertThat(step.timeUnixNano()).isEqualTo(10L);
 		assertThat(step.endTimeUnixNano()).isEqualTo(20L);
@@ -80,10 +80,10 @@ class FlowEventTest {
 		event.kind(null);
 		event.endStepEvent(30L, 40L, Map.of("ignored", true));
 
-		OEvent step = new OEvent("demo.step", 10L, null, "INTERNAL");
+		StepEvent step = new StepEvent("demo.step", 10L, null, "INTERNAL");
 		step.setEndTimeUnixNano(20L);
 		step.setElapsedNanos(10L);
-		OEvent snapshot = step.snapshot();
+		StepEvent snapshot = step.snapshot();
 		OAttributes nullBacked = new OAttributes(null);
 
 		assertThat(event.timestamp()).isEqualTo(timestamp);
@@ -108,7 +108,7 @@ class FlowEventTest {
 		event.endStepEvent(20L, 175L, Map.of());
 
 		assertThat(event.events()).hasSize(1);
-		OEvent step = event.events().get(0);
+		StepEvent step = event.events().get(0);
 		assertThat(step.attributes().map()).containsOnlyKeys("sku");
 	}
 
