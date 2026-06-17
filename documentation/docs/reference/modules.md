@@ -29,3 +29,10 @@ Contains:
 ## `mango4j-instrument-spring-boot`
 
 Contains Boot-specific auto-configuration on top of the Spring runtime.
+
+## Dependency Guidance
+
+- Use `mango4j-instrument-annotations` when you only need compile-time annotations.
+- Use `mango4j-instrument-core` when you are building runtime integrations or tests against the event model.
+- Use `mango4j-instrument-spring` for plain Spring applications.
+- Use `mango4j-instrument-spring-boot` for Spring Boot applications.

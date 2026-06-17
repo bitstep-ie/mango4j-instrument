@@ -37,6 +37,7 @@ extra:
 nav:
   - Home: index.md
   - Guide:
+      - Guide Overview: guide/guide.md
       - Overview: guide/overview.md
       - Getting Started: guide/getting-started.md
       - Flows And Steps: guide/flows-and-steps.md

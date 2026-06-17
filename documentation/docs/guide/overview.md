@@ -29,3 +29,43 @@ At runtime the Spring module:
 - optionally imports trace headers into the current context
 
 The result is a backend-agnostic event model that can be adapted to logging, metrics, tracing, audit sinks, or test assertions.
+
+## Example Event Stream
+
+```java
+import org.springframework.stereotype.Service;
+
+import ie.bitstep.mango.instrument.annotations.Flow;
+import ie.bitstep.mango.instrument.annotations.PushAttribute;
+import ie.bitstep.mango.instrument.annotations.Step;
+
+@Service
+class CheckoutService {
+
+    private final StockService stockService;
+
+    CheckoutService(StockService stockService) {
+        this.stockService = stockService;
+    }
+
+    @Flow("checkout.submit")
+    public String checkout(@PushAttribute("user.id") String userId) {
+        stockService.reserve("SKU-1");
+        return "ok";
+    }
+}
+
+@Service
+class StockService {
+
+    @Step("checkout.stock.reserve")
+    public void reserve(@PushAttribute("sku") String sku) {
+    }
+}
+```
+
+That single method can emit:
+
+- a started event when execution begins
+- a completed event when the method returns normally
+- a failed event if the method exits by throwing

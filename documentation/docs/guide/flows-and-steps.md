@@ -8,6 +8,8 @@
 - a completed event when the method returns normally
 - a failed event when the method exits by throwing
 
+Use either `@Flow("checkout.submit")` or `@Flow(name = "checkout.submit")`. The same applies to `@Step`.
+
 Flow names should be stable and descriptive. Dot-separated names work well because scope matching understands prefixes like `checkout.`.
 
 ## `@Step`
@@ -17,6 +19,12 @@ Flow names should be stable and descriptive. Dot-separated names work well becau
 Example:
 
 ```java
+import org.springframework.stereotype.Service;
+
+import ie.bitstep.mango.instrument.annotations.Flow;
+import ie.bitstep.mango.instrument.annotations.PushAttribute;
+import ie.bitstep.mango.instrument.annotations.Step;
+
 @Service
 class CheckoutService {
 
@@ -34,6 +42,11 @@ class CheckoutService {
 ```
 
 ```java
+import org.springframework.stereotype.Service;
+
+import ie.bitstep.mango.instrument.annotations.PushAttribute;
+import ie.bitstep.mango.instrument.annotations.Step;
+
 @Service
 class StockService {
 
@@ -58,3 +71,36 @@ You can enrich emitted events with:
 - `@Kind`
 
 Attributes are usually business metadata. Context values are usually runtime metadata that sinks may need for routing or correlation.
+
+### Example
+
+```java
+import io.opentelemetry.api.trace.SpanKind;
+import ie.bitstep.mango.instrument.annotations.Flow;
+import ie.bitstep.mango.instrument.annotations.Kind;
+import ie.bitstep.mango.instrument.annotations.PushAttribute;
+import ie.bitstep.mango.instrument.annotations.PushContextValue;
+
+@Service
+class PaymentService {
+
+    @Kind(SpanKind.SERVER)
+    @Flow("payment.authorize")
+    public String authorize(@PushAttribute("payment.id") String paymentId,
+                            @PushContextValue("tenant.id") String tenantId) {
+        return "authorized";
+    }
+}
+```
+
+## Flow Event Content
+
+The emitted `FlowEvent` stores:
+
+- the flow name
+- timestamps
+- attributes
+- event context
+- nested step events
+- trace identifiers when present
+- status and throwable details for completion or failure

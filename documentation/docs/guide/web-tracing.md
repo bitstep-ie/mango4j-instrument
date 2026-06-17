@@ -31,3 +31,28 @@ That means:
 ## What It Does Not Do
 
 This module captures and propagates trace context into the `FlowEvent` model. It does not itself export spans to a tracing backend.
+
+## Example
+
+For plain Spring:
+
+```java
+import jakarta.servlet.Filter;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import ie.bitstep.mango.instrument.core.FlowProcessorSupport;
+import ie.bitstep.mango.instrument.spring.web.TraceContextFilter;
+
+@Configuration
+class AppConfig {
+
+    @Bean
+    Filter mangoTraceContextFilter(FlowProcessorSupport support) {
+        return new TraceContextFilter(support);
+    }
+}
+```
+
+For Spring Boot, the auto-configuration layer registers the same filters for you when the matching web stack is present.

@@ -5,6 +5,15 @@
 ## Basic Sink
 
 ```java
+import java.util.Map;
+
+import ie.bitstep.mango.instrument.annotations.OnFlowCompleted;
+import ie.bitstep.mango.instrument.annotations.OnFlowStarted;
+import ie.bitstep.mango.instrument.annotations.OnFlowScope;
+import ie.bitstep.mango.instrument.annotations.PullAllAttributes;
+import ie.bitstep.mango.instrument.model.FlowEvent;
+import ie.bitstep.mango.instrument.spring.annotations.FlowSink;
+
 @FlowSink
 @OnFlowScope("checkout.")
 class CheckoutSink {
@@ -26,6 +35,7 @@ Use `@OnFlowScope` at class or method level to limit which flow names match.
 - `"checkout."` matches `checkout.submit` and `checkout.stock.reserve`
 - `"checkout"` matches `checkout` and nested names under `checkout.`
 - blank scope matches anything
+- `@OnFlowScope` is repeatable, so a sink can listen to more than one flow prefix
 
 ## Parameter Binding
 
@@ -38,8 +48,36 @@ Sink methods can bind:
 - all context via `@PullAllContextValues`
 - failures via `Throwable` plus `@FlowException`
 
+## Failure Handlers
+
+The failure path is usually easier to read when written explicitly:
+
+```java
+import ie.bitstep.mango.instrument.annotations.FlowException;
+import ie.bitstep.mango.instrument.annotations.OnFlowFailure;
+import ie.bitstep.mango.instrument.annotations.OnFlowLifecycle;
+import ie.bitstep.mango.instrument.annotations.OnFlowScope;
+import ie.bitstep.mango.instrument.annotations.PullAttribute;
+import ie.bitstep.mango.instrument.annotations.PullContextValue;
+import ie.bitstep.mango.instrument.spring.annotations.FlowSink;
+
+@FlowSink
+@OnFlowScope("checkout.")
+class CheckoutFailureSink {
+
+    @OnFlowFailure
+    void onFailure(
+            @FlowException Throwable error,
+            @PullAttribute("user.id") String userId,
+            @PullContextValue("tenant.id") String tenantId) {
+    }
+}
+```
+
+If you want a broader lifecycle filter, use `@OnFlowLifecycle(OnFlowLifecycle.Lifecycle.FAILED)`.
+
 ## Fallbacks
 
 `@OnFlowNotMatched` methods run when a sink is in play but none of its normal handlers matched the event.
 
-That is useful for assertions, diagnostics, or “missed route” bookkeeping.
+That is useful for assertions, diagnostics, or missed-route bookkeeping.

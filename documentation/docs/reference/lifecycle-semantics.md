@@ -49,3 +49,10 @@ Prefer:
 - `@OnFlowLifecycle(FAILED)`
 
 for handlers that are explicitly about failure events.
+
+## Recommended Patterns
+
+- use `@OnFlowStarted` for startup bookkeeping
+- use `@OnFlowCompleted` for success-only work
+- use `@OnFlowFailure` for exception-specific handling
+- use `@OnOutcome` only when you want outcome classification to be explicit in the handler signature

@@ -19,13 +19,18 @@ These annotate method parameters and push values into the active event.
 - `@OnFlowStarted`
 - `@OnFlowCompleted`
 - `@OnFlowFailure`
+- `@OnFlowSuccess`
 - `@OnFlowLifecycle`
+- `@OnFlowLifecycles`
 - `@OnFlowNotMatched`
 - `@OnOutcome`
+- `@OnOutcomes`
 - `@OnFlowScope`
 - `@OnFlowScopes`
+- `@OnAllLifecycles`
 - `@RequiredAttributes`
 - `@RequiredEventContext`
+- `@OrphanAlert`
 
 ## Sink Parameter Pull
 
@@ -36,3 +41,40 @@ These annotate method parameters and push values into the active event.
 - `@FlowException`
 
 These are resolved by the Spring scanner when it compiles sink handlers.
+
+## Semantics At A Glance
+
+- `@Flow` and `@Step` both support `value` or `name`
+- `@OnFlowScope` is repeatable and works on types or methods
+- `@PushAttribute` and `@PushContextValue` forward values verbatim, so do not use them for secrets
+- `@OnFlowFailure` is lifecycle-based, not outcome-based
+- `@OnFlowSuccess` is a convenience handler for successful flow completion
+- `@OnOutcome` is outcome-based, not lifecycle-based
+- `@OrphanAlert` controls the log level used when a step is auto-promoted to a flow
+
+## Small Examples
+
+```java
+@Flow("checkout.submit")
+public String submit(@PushAttribute("user.id") String userId) {
+    return "ok";
+}
+```
+
+```java
+import java.util.Map;
+
+import ie.bitstep.mango.instrument.annotations.OnFlowCompleted;
+import ie.bitstep.mango.instrument.annotations.OnFlowScope;
+import ie.bitstep.mango.instrument.annotations.PullAllAttributes;
+import ie.bitstep.mango.instrument.spring.annotations.FlowSink;
+
+@FlowSink
+@OnFlowScope("checkout.")
+class CheckoutSink {
+
+    @OnFlowCompleted
+    void onCompleted(@PullAllAttributes Map<String, Object> attributes) {
+    }
+}
+```

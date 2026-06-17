@@ -27,3 +27,7 @@ Mutation testing is focused on the runtime-heavy modules:
 - `mango4j-instrument-spring`
 
 The annotations module is intentionally excluded because it is mostly declarative API surface, and the Boot module remains thin configuration glue.
+
+## Local Outputs
+
+The Maven build writes generated reports into each module's `tmp/` directory. Those directories are build output and do not need to be checked in.

@@ -6,11 +6,11 @@
     <figcaption>mango4j-instrument</figcaption>
 </figure>
 
-`mango4j-instrument` is a Spring-focused instrumentation library for capturing flows, steps, metadata, failures, and inbound trace context without committing your application to a single telemetry backend.
+`mango4j-instrument` is a Spring-focused instrumentation library for capturing flows, steps, metadata, failures, and inbound trace context without tying your application to a single telemetry backend.
 
 ## Start Here
 
-- [Guide Overview](guide/overview.md)
+- [Guide](guide/guide.md)
 - [Getting Started](guide/getting-started.md)
 - [Flows And Steps](guide/flows-and-steps.md)
 - [Flow Sinks](guide/flow-sinks.md)
@@ -19,9 +19,9 @@
 
 ## Modules
 
-- `mango4j-instrument-annotations`: pure annotations and API surface
+- `mango4j-instrument-annotations`: reusable annotations and API surface
 - `mango4j-instrument-core`: event model, processor support, validation, and dispatch
-- `mango4j-instrument-spring`: Spring AOP runtime, sink scanning, and web tracing
+- `mango4j-instrument-spring`: Spring AOP runtime, sink scanning, and trace filters
 - `mango4j-instrument-spring-boot`: Boot auto-configuration layer
 
 ## Design Goals
@@ -34,12 +34,34 @@
 ## Example
 
 ```java
+import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.RestController;
+
+import ie.bitstep.mango.instrument.annotations.Flow;
+import ie.bitstep.mango.instrument.annotations.PushAttribute;
+import ie.bitstep.mango.instrument.annotations.Step;
+
 @RestController
 class CheckoutController {
 
-    @Flow(name = "checkout.submit")
-    public String checkout(@PushAttribute("user.id") String userId) {
+    private final StockService stockService;
+
+    CheckoutController(StockService stockService) {
+        this.stockService = stockService;
+    }
+
+    @Flow("checkout.submit")
+    public String checkout(@PushAttribute("user.id") String userId, String sku) {
+        stockService.reserve(sku);
         return "ok";
+    }
+}
+
+@Service
+class StockService {
+
+    @Step("checkout.stock.reserve")
+    public void reserve(@PushAttribute("sku") String sku) {
     }
 }
 ```

@@ -18,3 +18,22 @@ The repo keeps plain Spring and Boot support separate on purpose.
 For Boot applications, depend on `mango4j-instrument-spring-boot`. It builds on the same Spring runtime module and keeps the enable-style programming model available.
 
 For library code, depend on the annotations module only.
+
+## What Boot Adds
+
+The Boot module contributes auto-configuration for:
+
+- the core instrumentation runtime
+- servlet trace filters when servlet APIs are present
+- WebFlux trace filters when reactive web classes are present
+
+That keeps the application-side entry point small:
+
+```java
+@SpringBootApplication
+@EnableMangoInstrumentation
+public class DemoApplication {
+}
+```
+
+If you already have an application configuration class, `@EnableMangoInstrumentation` can live there instead of on the main application class.

@@ -8,7 +8,7 @@ For plain Spring:
 <dependency>
     <groupId>ie.bitstep.mango</groupId>
     <artifactId>mango4j-instrument-spring</artifactId>
-    <version>1.0.1</version>
+    <version>0.1.1</version>
 </dependency>
 ```
 
@@ -18,9 +18,11 @@ For Spring Boot:
 <dependency>
     <groupId>ie.bitstep.mango</groupId>
     <artifactId>mango4j-instrument-spring-boot</artifactId>
-    <version>1.0.1</version>
+    <version>0.1.1</version>
 </dependency>
 ```
+
+If you only want compile-time annotations, depend on `mango4j-instrument-annotations` instead.
 
 ## Enable Instrumentation
 
@@ -57,12 +59,13 @@ class CheckoutService {
 
 ```java
 import ie.bitstep.mango.instrument.annotations.Step;
+import ie.bitstep.mango.instrument.annotations.PushAttribute;
 
 @Service
 class StockService {
 
     @Step("checkout.stock.reserve")
-    public void reserve(String sku) {
+    public void reserve(@PushAttribute("sku") String sku) {
     }
 }
 ```
@@ -70,12 +73,17 @@ class StockService {
 ## Register A Sink
 
 ```java
+import java.util.Map;
+
 import ie.bitstep.mango.instrument.annotations.OnFlowCompleted;
 import ie.bitstep.mango.instrument.annotations.OnFlowStarted;
+import ie.bitstep.mango.instrument.annotations.OnFlowScope;
+import ie.bitstep.mango.instrument.annotations.PullAllAttributes;
 import ie.bitstep.mango.instrument.model.FlowEvent;
 import ie.bitstep.mango.instrument.spring.annotations.FlowSink;
 
 @FlowSink
+@OnFlowScope("checkout.")
 class AuditSink {
 
     @OnFlowStarted
@@ -83,7 +91,13 @@ class AuditSink {
     }
 
     @OnFlowCompleted
-    void onCompleted(FlowEvent event) {
+    void onCompleted(@PullAllAttributes Map<String, Object> attributes) {
     }
 }
 ```
+
+## Next Steps
+
+- [Flows And Steps](flows-and-steps.md)
+- [Flow Sinks](flow-sinks.md)
+- [Web Tracing](web-tracing.md)
