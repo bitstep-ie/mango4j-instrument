@@ -1,58 +1,60 @@
 # Lifecycle Semantics
 
-This is the part of the model that needs the most explicit documentation.
+This section describes the lifecycle events emitted by a flow and the annotations used to match them.
 
-## Lifecycle
+## Lifecycle Events
 
-Lifecycle is about the emitted event phase:
+Flow handlers react to one of three lifecycle states:
 
 - `STARTED`
 - `COMPLETED`
 - `FAILED`
 
-`@OnFlowLifecycle(...)` and `@OnFlowFailure` operate at this level.
+Use these annotations to listen for them:
 
-## Outcome
+- `@OnFlowStarted`
+- `@OnFlowCompleted`
+- `@OnFlowSuccess`
+- `@OnFlowFailure`
+- `@OnFlowLifecycle(...)`
 
-Outcome is intended to be a semantic classification of success or failure.
+## When To Use Each One
 
-`@OnOutcome(...)` operates at this level.
+- `@OnFlowStarted` for setup, logging, and request bookkeeping
+- `@OnFlowCompleted` for work that should run when the flow reaches completion
+- `@OnFlowSuccess` for success-specific callbacks
+- `@OnFlowFailure` for failure-specific callbacks
+- `@OnFlowLifecycle(...)` when you want to name the lifecycle value directly in the handler
 
-## Why They Are Different
+## Plain English
 
-A nested step can fail, the caller can catch the exception, and the root flow can still complete successfully.
+`@OnFlowSuccess` means the flow finished successfully.
 
-Example:
+`@OnFlowFailure` means the flow failed.
 
-1. `checkout.submit` starts
-2. `checkout.stock.reserve` throws
-3. the flow catches the exception and falls back
-4. `checkout.submit` completes successfully
+`@OnFlowLifecycle(OnFlowLifecycle.Lifecycle.STARTED)` means the handler should run when the started event is emitted.
 
-In that case:
+## Example
 
-- the step emitted a failed lifecycle event
-- the root flow did not necessarily have a final failure outcome
+```java
+import java.util.Map;
 
-## Current Runtime Detail
+import ie.bitstep.mango.instrument.annotations.OnFlowCompleted;
+import ie.bitstep.mango.instrument.annotations.OnFlowFailure;
+import ie.bitstep.mango.instrument.annotations.OnFlowScope;
+import ie.bitstep.mango.instrument.annotations.PullAllAttributes;
+import ie.bitstep.mango.instrument.spring.annotations.FlowSink;
 
-The current implementation overlaps `@OnOutcome(FAILURE)` heavily with failed lifecycle matching.
+@FlowSink
+@OnFlowScope("checkout.")
+class CheckoutLifecycleSink {
 
-That means:
+    @OnFlowCompleted
+    void onCheckoutCompleted(@PullAllAttributes Map<String, Object> attributes) {
+    }
 
-- conceptually, lifecycle and outcome are different
-- in the present runtime, failure outcome matching is narrower than ideal and maps closely to failed lifecycle events
-
-Prefer:
-
-- `@OnFlowFailure`, or
-- `@OnFlowLifecycle(FAILED)`
-
-for handlers that are explicitly about failure events.
-
-## Recommended Patterns
-
-- use `@OnFlowStarted` for startup bookkeeping
-- use `@OnFlowCompleted` for success-only work
-- use `@OnFlowFailure` for exception-specific handling
-- use `@OnOutcome` only when you want outcome classification to be explicit in the handler signature
+    @OnFlowFailure
+    void onCheckoutFailed(Throwable error) {
+    }
+}
+```

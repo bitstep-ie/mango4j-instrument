@@ -48,22 +48,26 @@ Sink methods can bind:
 - all context via `@PullAllContextValues`
 - failures via `Throwable` plus `@FlowException`
 
-## Failure Handlers
+## Success And Failure Handlers
 
-The failure path is usually easier to read when written explicitly:
+Use `@OnFlowSuccess` for success-specific callbacks and `@OnFlowFailure` for failure-specific callbacks.
 
 ```java
 import ie.bitstep.mango.instrument.annotations.FlowException;
 import ie.bitstep.mango.instrument.annotations.OnFlowFailure;
-import ie.bitstep.mango.instrument.annotations.OnFlowLifecycle;
 import ie.bitstep.mango.instrument.annotations.OnFlowScope;
+import ie.bitstep.mango.instrument.annotations.OnFlowSuccess;
 import ie.bitstep.mango.instrument.annotations.PullAttribute;
 import ie.bitstep.mango.instrument.annotations.PullContextValue;
 import ie.bitstep.mango.instrument.spring.annotations.FlowSink;
 
 @FlowSink
 @OnFlowScope("checkout.")
-class CheckoutFailureSink {
+class CheckoutStatusSink {
+
+    @OnFlowSuccess
+    void onSuccess() {
+    }
 
     @OnFlowFailure
     void onFailure(
@@ -74,7 +78,7 @@ class CheckoutFailureSink {
 }
 ```
 
-If you want a broader lifecycle filter, use `@OnFlowLifecycle(OnFlowLifecycle.Lifecycle.FAILED)`.
+`@OnFlowCompleted` is useful when you want to run after the flow completes without saying success or failure in the handler name.
 
 ## Fallbacks
 

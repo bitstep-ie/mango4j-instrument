@@ -14,7 +14,7 @@ import ie.bitstep.mango.instrument.core.FlowProcessorSupport;
 import ie.bitstep.mango.instrument.core.dispatch.AsyncDispatchBus;
 import ie.bitstep.mango.instrument.core.sinks.FlowHandlerRegistry;
 import ie.bitstep.mango.instrument.model.FlowEvent;
-import ie.bitstep.mango.instrument.model.OStatus;
+import ie.bitstep.mango.instrument.model.FlowStatus;
 import ie.bitstep.mango.instrument.validation.FlowAttributeValidator;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -73,7 +73,7 @@ class DefaultFlowProcessorTest {
 		assertThat(started.parentSpanId()).isEqualTo("parent-1");
 		assertThat(started.attributes().map()).containsEntry("trace.tracestate", "vendor=data");
 		assertThat(completed.attributes().map()).containsEntry("result", "ok");
-		assertThat(completed.status()).isEqualTo(new OStatus(StatusCode.OK, "done"));
+		assertThat(completed.status()).isEqualTo(new FlowStatus(StatusCode.OK, "done"));
 		assertThat(support.startBatchCalls).isEqualTo(1);
 		assertThat(support.clearBatchCalls).isEqualTo(1);
 		assertThat(support.currentContext()).isNull();
@@ -153,7 +153,7 @@ class DefaultFlowProcessorTest {
 		assertThat(completed.spanId()).isEqualTo("span-2");
 		assertThat(completed.parentSpanId()).isEqualTo("parent-2");
 		assertThat(completed.attributes().map()).containsEntry("trace.tracestate", "state=ok");
-		assertThat(completed.status()).isEqualTo(new OStatus(StatusCode.ERROR, "bad"));
+		assertThat(completed.status()).isEqualTo(new FlowStatus(StatusCode.ERROR, "bad"));
 	}
 
 	@Test
@@ -180,7 +180,7 @@ class DefaultFlowProcessorTest {
 
 		awaitSize(seen, 2);
 		assertThat(seen.get(0).kind()).isEqualTo(SpanKind.INTERNAL);
-		assertThat(seen.get(1).status()).isEqualTo(new OStatus(StatusCode.UNSET, "weird"));
+		assertThat(seen.get(1).status()).isEqualTo(new FlowStatus(StatusCode.UNSET, "weird"));
 
 		support.setEnabled(false);
 		processor.onFlowStarted("disabled.flow", Map.of(), Map.of(), null);
@@ -226,7 +226,7 @@ class DefaultFlowProcessorTest {
 		assertThat(failedEvent.eventContext()).containsEntry("lifecycle", "FAILED");
 		assertThat(failedEvent.throwable()).isNull();
 		assertThat(failedEvent.attributes().map()).doesNotContainKey("error");
-		assertThat(failedEvent.status()).isEqualTo(new OStatus(StatusCode.ERROR, null));
+		assertThat(failedEvent.status()).isEqualTo(new FlowStatus(StatusCode.ERROR, null));
 		assertThat(seen.get(0).attributes().map()).doesNotContainKey("trace.tracestate");
 	}
 

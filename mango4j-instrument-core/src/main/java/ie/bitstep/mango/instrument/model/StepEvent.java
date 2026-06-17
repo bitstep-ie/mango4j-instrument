@@ -5,13 +5,13 @@ public class StepEvent {
 	private final long timeUnixNano;
 	private long endTimeUnixNano;
 	private long elapsedNanos;
-	private final OAttributes attributes;
+	private final FlowAttributes attributes;
 	private final String kind;
 
-	public StepEvent(String name, long timeUnixNano, OAttributes attributes, String kind) {
+	public StepEvent(String name, long timeUnixNano, FlowAttributes attributes, String kind) {
 		this.name = name;
 		this.timeUnixNano = timeUnixNano;
-		this.attributes = attributes == null ? new OAttributes() : attributes;
+		this.attributes = attributes == null ? new FlowAttributes() : attributes;
 		this.kind = kind;
 	}
 
@@ -39,7 +39,7 @@ public class StepEvent {
 		this.elapsedNanos = elapsedNanos;
 	}
 
-	public OAttributes attributes() {
+	public FlowAttributes attributes() {
 		return attributes;
 	}
 
@@ -48,7 +48,7 @@ public class StepEvent {
 	}
 
 	public StepEvent snapshot() {
-		StepEvent copy = new StepEvent(name, timeUnixNano, new OAttributes(attributes.map()), kind);
+		StepEvent copy = new StepEvent(name, timeUnixNano, new FlowAttributes(attributes.map()), kind);
 		copy.setEndTimeUnixNano(endTimeUnixNano);
 		copy.setElapsedNanos(elapsedNanos);
 		return copy;

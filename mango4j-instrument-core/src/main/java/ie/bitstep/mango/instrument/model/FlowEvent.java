@@ -14,12 +14,12 @@ public class FlowEvent {
 	private final String name;
 	private final Instant timestamp;
 	private Instant endTimestamp;
-	private final OAttributes attributes;
+	private final FlowAttributes attributes;
 	private final Map<String, Object> eventContext;
 	private final List<StepEvent> events;
 	private final Deque<OpenStep> openSteps;
 	private SpanKind kind = SpanKind.INTERNAL;
-	private OStatus status;
+	private FlowStatus status;
 	private Throwable throwable;
 	private Object returnValue;
 	private String traceId;
@@ -29,7 +29,7 @@ public class FlowEvent {
 	private FlowEvent(Builder builder) {
 		this.name = builder.name;
 		this.timestamp = builder.timestamp == null ? Instant.now() : builder.timestamp;
-		this.attributes = new OAttributes(builder.attributes);
+		this.attributes = new FlowAttributes(builder.attributes);
 		this.eventContext = new LinkedHashMap<>(builder.eventContext);
 		this.events = new ArrayList<>();
 		this.openSteps = new ArrayDeque<>();
@@ -51,7 +51,7 @@ public class FlowEvent {
 		return endTimestamp;
 	}
 
-	public OAttributes attributes() {
+	public FlowAttributes attributes() {
 		return attributes;
 	}
 
@@ -95,11 +95,11 @@ public class FlowEvent {
 		this.kind = kind == null ? SpanKind.INTERNAL : kind;
 	}
 
-	public OStatus status() {
+	public FlowStatus status() {
 		return status;
 	}
 
-	public void setStatus(OStatus status) {
+	public void setStatus(FlowStatus status) {
 		this.status = status;
 	}
 
@@ -122,7 +122,7 @@ public class FlowEvent {
 	}
 
 	public void beginStepEvent(
-			String name, long startEpochNanos, long startNanoTime, OAttributes initialAttributes, String kindValue) {
+			String name, long startEpochNanos, long startNanoTime, FlowAttributes initialAttributes, String kindValue) {
 		StepEvent event = new StepEvent(name, startEpochNanos, initialAttributes, kindValue);
 		events.add(event);
 		openSteps.addLast(new OpenStep(event, startNanoTime));

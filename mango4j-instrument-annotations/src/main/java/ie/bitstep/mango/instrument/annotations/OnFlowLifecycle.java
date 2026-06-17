@@ -13,8 +13,7 @@ import java.lang.annotation.Target;
  * {@link Lifecycle#FAILED} event even if an outer caller catches the exception and the overall root flow later
  * completes successfully.
  *
- * <p>Use this when the handler should react to a specific emitted lifecycle event. Use {@link OnOutcome} when the
- * handler should express success or failure as an outcome classification instead.
+ * <p>Use this when the handler should react to a specific emitted lifecycle event.
  */
 @Documented
 @Target(ElementType.METHOD)

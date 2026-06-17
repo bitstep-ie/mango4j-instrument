@@ -19,8 +19,8 @@ import ie.bitstep.mango.instrument.annotations.Step;
 import ie.bitstep.mango.instrument.core.FlowProcessorSupport;
 import ie.bitstep.mango.instrument.core.processor.FlowMeta;
 import ie.bitstep.mango.instrument.core.processor.FlowProcessor;
+import ie.bitstep.mango.instrument.model.FlowAttributes;
 import ie.bitstep.mango.instrument.model.FlowEvent;
-import ie.bitstep.mango.instrument.model.OAttributes;
 import ie.bitstep.mango.instrument.spring.processor.AttributeParamExtractor;
 import ie.bitstep.mango.instrument.spring.processor.AttributeParamExtractor.AttrCtx;
 
@@ -124,7 +124,7 @@ public class FlowAspect {
 				name,
 				startEpochNanos,
 				startNano,
-				new OAttributes(new LinkedHashMap<>(attrCtx.attributes())),
+				new FlowAttributes(new LinkedHashMap<>(attrCtx.attributes())),
 				extractStepKind(joinPoint));
 		try {
 			Object result = joinPoint.proceed();

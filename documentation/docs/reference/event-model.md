@@ -39,11 +39,11 @@ Example:
 import java.util.Map;
 
 import ie.bitstep.mango.instrument.model.FlowEvent;
-import ie.bitstep.mango.instrument.model.OAttributes;
+import ie.bitstep.mango.instrument.model.FlowAttributes;
 import ie.bitstep.mango.instrument.model.StepEvent;
 
 FlowEvent flow = FlowEvent.builder().name("checkout.submit").build();
-flow.beginStepEvent("checkout.stock.reserve", 10L, 100L, new OAttributes(), "CLIENT");
+flow.beginStepEvent("checkout.stock.reserve", 10L, 100L, new FlowAttributes(), "CLIENT");
 flow.endStepEvent(20L, 175L, Map.of("sku", "SKU-1"));
 
 StepEvent step = flow.events().get(0);
@@ -64,10 +64,10 @@ Think of it as runtime metadata, not as a user-facing event object.
 
 ## Attributes And Status
 
-The current implementation uses the `OAttributes` and `OStatus` value objects inside the model.
+The current implementation uses the `FlowAttributes` and `FlowStatus` value objects inside the model.
 
-- `OAttributes` is a mutable ordered map wrapper for attributes.
-- `OStatus` pairs an OpenTelemetry status code with an optional message.
+- `FlowAttributes` is a mutable ordered map wrapper for attributes.
+- `FlowStatus` pairs an OpenTelemetry status code with an optional message.
 
 These are support types used by `FlowEvent` and `StepEvent`, not separate event hierarchies.
 

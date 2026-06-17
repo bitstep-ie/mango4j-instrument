@@ -22,8 +22,6 @@ import ie.bitstep.mango.instrument.annotations.OnFlowLifecycle;
 import ie.bitstep.mango.instrument.annotations.OnFlowScope;
 import ie.bitstep.mango.instrument.annotations.OnFlowScopes;
 import ie.bitstep.mango.instrument.annotations.OnFlowStarted;
-import ie.bitstep.mango.instrument.annotations.OnOutcome;
-import ie.bitstep.mango.instrument.annotations.Outcome;
 import ie.bitstep.mango.instrument.annotations.PullAllAttributes;
 import ie.bitstep.mango.instrument.annotations.PullAllContextValues;
 import ie.bitstep.mango.instrument.annotations.PullAttribute;
@@ -211,26 +209,6 @@ class FlowSinkScannerInternalsTest {
 		Method invalidBindingMethod = SampleSink.class.getDeclaredMethod("invalidBinding", Integer.class);
 		assertThat(compileHandler.invoke(scanner, sink, invalidBindingMethod, List.of(), Set.of()))
 				.isNull();
-
-		Method failureFinishMethod = SampleSink.class.getDeclaredMethod("onCompletedFailureOutcome", Throwable.class);
-		Object failureFinishCompiled = compileHandler.invoke(
-				scanner, sink, failureFinishMethod, List.of(), Set.of(OnFlowLifecycle.Lifecycle.FAILED));
-		assertThat(failureFinishCompiled).isNotNull();
-
-		Method failureFinishMatches = failureFinishCompiled.getClass().getDeclaredMethod("matches", FlowEvent.class);
-		Method failureFinishInvoke = failureFinishCompiled.getClass().getDeclaredMethod("invoke", FlowEvent.class);
-		failureFinishMatches.setAccessible(true);
-		failureFinishInvoke.setAccessible(true);
-
-		FlowEvent failedCompletion = FlowEvent.builder().name("orders.checkout").build();
-		failedCompletion.eventContext().put("lifecycle", "FAILED");
-		RuntimeException wrapper = new RuntimeException("wrap", new IllegalArgumentException("root"));
-		failedCompletion.setThrowable(wrapper);
-
-		assertThat(failureFinishMatches.invoke(failureFinishCompiled, failedCompletion))
-				.isEqualTo(true);
-		failureFinishInvoke.invoke(failureFinishCompiled, failedCompletion);
-		assertThat(sink.failureFinishThrowable).isSameAs(wrapper);
 
 		Object mismatchedProxy = Proxy.newProxyInstance(
 				Runnable.class.getClassLoader(), new Class<?>[] {Runnable.class}, (proxy, method, args) -> null);
@@ -475,13 +453,11 @@ class FlowSinkScannerInternalsTest {
 	static class SampleSink {
 		Throwable failureOnlyThrowable;
 		Throwable throwable;
-		Throwable failureFinishThrowable;
 		String contextValue;
 		java.util.Map<String, Object> attributes;
 		java.util.Map<String, Object> context;
 
 		@OnFlowLifecycle(OnFlowLifecycle.Lifecycle.FAILED)
-		@OnOutcome(Outcome.FAILURE)
 		void onFailedLifecycle(
 				@FlowException(FlowException.Source.ROOT) Throwable throwable,
 				@PullContextValue("trace.id") String traceId,
@@ -497,12 +473,6 @@ class FlowSinkScannerInternalsTest {
 
 		@OnFlowCompleted
 		void invalidBinding(Integer count) {}
-
-		@OnFlowCompleted
-		@OnOutcome(Outcome.FAILURE)
-		void onCompletedFailureOutcome(Throwable throwable) {
-			this.failureFinishThrowable = throwable;
-		}
 
 		@ie.bitstep.mango.instrument.annotations.OnFlowFailure
 		void failureOnly(Throwable throwable) {

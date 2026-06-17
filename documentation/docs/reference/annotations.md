@@ -23,8 +23,6 @@ These annotate method parameters and push values into the active event.
 - `@OnFlowLifecycle`
 - `@OnFlowLifecycles`
 - `@OnFlowNotMatched`
-- `@OnOutcome`
-- `@OnOutcomes`
 - `@OnFlowScope`
 - `@OnFlowScopes`
 - `@OnAllLifecycles`
@@ -47,9 +45,9 @@ These are resolved by the Spring scanner when it compiles sink handlers.
 - `@Flow` and `@Step` both support `value` or `name`
 - `@OnFlowScope` is repeatable and works on types or methods
 - `@PushAttribute` and `@PushContextValue` forward values verbatim, so do not use them for secrets
-- `@OnFlowFailure` is lifecycle-based, not outcome-based
-- `@OnFlowSuccess` is a convenience handler for successful flow completion
-- `@OnOutcome` is outcome-based, not lifecycle-based
+- `@OnFlowFailure` is the failure-specific lifecycle hook
+- `@OnFlowSuccess` is the success-specific lifecycle hook
+- `@OnFlowCompleted` is the generic completion hook
 - `@OrphanAlert` controls the log level used when a step is auto-promoted to a flow
 
 ## Small Examples

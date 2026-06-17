@@ -14,7 +14,7 @@ class FlowEventTest {
 		FlowEvent event =
 				FlowEvent.builder().name("demo.flow").timestamp(Instant.now()).build();
 
-		event.beginStepEvent("demo.step", 10L, 100L, new OAttributes(Map.of("sku", "123")), "CLIENT");
+		event.beginStepEvent("demo.step", 10L, 100L, new FlowAttributes(Map.of("sku", "123")), "CLIENT");
 		event.endStepEvent(20L, 175L, Map.of("status", "ok"));
 
 		assertThat(event.events()).hasSize(1);
@@ -33,7 +33,7 @@ class FlowEventTest {
 		event.attributes().put("user.id", "alice");
 		event.eventContext().put("lifecycle", "STARTED");
 		event.setReturnValue("ok");
-		event.beginStepEvent("demo.step", 10L, 100L, new OAttributes(Map.of("sku", "123")), "CLIENT");
+		event.beginStepEvent("demo.step", 10L, 100L, new FlowAttributes(Map.of("sku", "123")), "CLIENT");
 		event.endStepEvent(20L, 175L, null);
 
 		FlowEvent snapshot = event.snapshot();
@@ -84,7 +84,7 @@ class FlowEventTest {
 		step.setEndTimeUnixNano(20L);
 		step.setElapsedNanos(10L);
 		StepEvent snapshot = step.snapshot();
-		OAttributes nullBacked = new OAttributes(null);
+		FlowAttributes nullBacked = new FlowAttributes(null);
 
 		assertThat(event.timestamp()).isEqualTo(timestamp);
 		assertThat(event.attributes().map()).containsEntry("user.id", "alice");
@@ -104,7 +104,7 @@ class FlowEventTest {
 	@Test
 	void end_step_event_with_empty_updates_skips_attribute_merge() {
 		FlowEvent event = FlowEvent.builder().name("demo.flow").build();
-		event.beginStepEvent("demo.step", 10L, 100L, new OAttributes(Map.of("sku", "123")), "CLIENT");
+		event.beginStepEvent("demo.step", 10L, 100L, new FlowAttributes(Map.of("sku", "123")), "CLIENT");
 		event.endStepEvent(20L, 175L, Map.of());
 
 		assertThat(event.events()).hasSize(1);
@@ -126,10 +126,10 @@ class FlowEventTest {
 	}
 
 	@Test
-	void oattributes_copies_input_and_allows_put() {
+	void flow_attributes_copies_input_and_allows_put() {
 		Map<String, Object> source = new java.util.LinkedHashMap<>();
 		source.put("user.id", "alice");
-		OAttributes attributes = new OAttributes(source);
+		FlowAttributes attributes = new FlowAttributes(source);
 		source.put("later", "ignored");
 
 		attributes.put("tenant.id", "bitstep");

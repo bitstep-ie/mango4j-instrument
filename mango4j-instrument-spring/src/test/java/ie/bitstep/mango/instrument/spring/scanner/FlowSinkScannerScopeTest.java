@@ -8,14 +8,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import ie.bitstep.mango.instrument.annotations.OnAllLifecycles;
 import ie.bitstep.mango.instrument.annotations.OnFlowCompleted;
+import ie.bitstep.mango.instrument.annotations.OnFlowFailure;
 import ie.bitstep.mango.instrument.annotations.OnFlowLifecycle;
 import ie.bitstep.mango.instrument.annotations.OnFlowLifecycles;
 import ie.bitstep.mango.instrument.annotations.OnFlowNotMatched;
 import ie.bitstep.mango.instrument.annotations.OnFlowScope;
 import ie.bitstep.mango.instrument.annotations.OnFlowStarted;
 import ie.bitstep.mango.instrument.annotations.OnFlowSuccess;
-import ie.bitstep.mango.instrument.annotations.OnOutcome;
-import ie.bitstep.mango.instrument.annotations.Outcome;
 import ie.bitstep.mango.instrument.annotations.PullAllAttributes;
 import ie.bitstep.mango.instrument.annotations.PullAllContextValues;
 import ie.bitstep.mango.instrument.annotations.PullAttribute;
@@ -44,7 +43,6 @@ class FlowSinkScannerScopeTest {
 		}
 
 		@OnFlowSuccess
-		@OnOutcome(Outcome.SUCCESS)
 		public void onSuccess() {
 			success.incrementAndGet();
 		}
@@ -83,14 +81,12 @@ class FlowSinkScannerScopeTest {
 			context = pulledContext;
 		}
 
-		@OnFlowCompleted
-		@OnOutcome(Outcome.SUCCESS)
+		@OnFlowSuccess
 		public void onSuccess() {
 			success.incrementAndGet();
 		}
 
-		@OnFlowCompleted
-		@OnOutcome(Outcome.FAILURE)
+		@OnFlowFailure
 		public void onFailure(
 				@ie.bitstep.mango.instrument.annotations.FlowException(
 								ie.bitstep.mango.instrument.annotations.FlowException.Source.ROOT)

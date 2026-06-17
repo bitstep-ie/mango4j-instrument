@@ -9,7 +9,7 @@ import io.opentelemetry.api.trace.StatusCode;
 import ie.bitstep.mango.instrument.core.FlowProcessorSupport;
 import ie.bitstep.mango.instrument.core.dispatch.AsyncDispatchBus;
 import ie.bitstep.mango.instrument.model.FlowEvent;
-import ie.bitstep.mango.instrument.model.OStatus;
+import ie.bitstep.mango.instrument.model.FlowStatus;
 import ie.bitstep.mango.instrument.validation.FlowAttributeValidator;
 
 public class DefaultFlowProcessor implements FlowProcessor {
@@ -151,7 +151,7 @@ public class DefaultFlowProcessor implements FlowProcessor {
 		} catch (IllegalArgumentException ex) {
 			code = StatusCode.UNSET;
 		}
-		event.setStatus(new OStatus(code, meta.statusMessage()));
+		event.setStatus(new FlowStatus(code, meta.statusMessage()));
 	}
 
 	private static SpanKind resolveKind(String value) {
